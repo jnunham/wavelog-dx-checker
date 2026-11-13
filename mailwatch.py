@@ -333,7 +333,8 @@ def build_alert(subject, result, band=None, mode=None, web_url=None):
     for e in needed:
         lines.append(f"{e['status']:<20} {_title(e['dxcc'])}  ({e['callsigns']})"
                      + (f"  [{e['when']}]" if e.get("when") else ""))
-        lines.append(f"{'':<20} {e['context']}")
+        for para in e["context"].split("\n\n"):
+            lines.append(f"{'':<20} {para}")
         lines.append("")
     if not needed:
         lines.append("You already have every entity in this bulletin confirmed.")
@@ -365,7 +366,7 @@ def build_alert(subject, result, band=None, mode=None, web_url=None):
                f'padding:1px 6px;margin-left:6px">{html.escape(e["when"])}</span>' if e.get("when") else "")
             + '</div>'
             f'<div style="margin:5px 0">{calls}</div>'
-            f'<div style="color:#6b6f76;font-size:13px">{html.escape(e["context"])}</div></td></tr>')
+            f'<div style="color:#6b6f76;font-size:13px">{html.escape(e["context"]).replace(chr(10) + chr(10), "<br><br>")}</div></td></tr>')
     body = (f'<table style="border-collapse:collapse;width:100%">{"".join(rows)}</table>' if rows else
             '<p style="color:#2b8a3e;font-weight:600">You already have every entity in this bulletin confirmed.</p>')
     foot = ""

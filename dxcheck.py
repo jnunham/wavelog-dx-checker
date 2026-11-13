@@ -89,23 +89,60 @@ def strip_html(text):
 
 
 PARA_BREAK_RE = re.compile(r"\n[ \t]*\n")
+# Start of a bulletin entry: "KC4, ANTARCTICA.", "EA9, CEUTA AND MELILLA.", "3D2/R, ROTUMA."
+ENTRY_RE = re.compile(r"[A-Z0-9]{1,4}(?:/[A-Z0-9]{1,4})?(?:\s*,\s*[A-Z0-9]{1,4}(?:/[A-Z0-9]{1,4})?)*"
+                      r",\s+[A-Z][A-Z&'\-]+(?:\s+[A-Z&'\-]+\.?){0,6}\.(?=\s|$)")
+# End-of-bulletin markers and the closing credits line
+END_RE = re.compile(r"\bNNNN\b|/EX\b|This week's bulletin was made possible|THIS WEEKEND ON THE RADIO",
+                    re.IGNORECASE)
+CREDITS_RE = re.compile(r"This week's bulletin was made possible|THIS WEEKEND ON THE RADIO", re.IGNORECASE)
 
 
-def paragraph_at(text, start, end, limit=1200):
-    """The whole paragraph (blank-line separated) around a match, whitespace collapsed.
+def entry_starts(text):
+    """Positions where a bulletin entry ("KC4, ANTARCTICA. ...") begins.
 
-    Bulletins wrap each entity's write-up over several lines, so the line alone cuts
-    sentences off. Very long paragraphs are trimmed around the match.
+    Only counts a match at the start of the text, a line, or right after a sentence,
+    so "QSL via EA5GL, LOTW." in the middle of a sentence isn't mistaken for one.
     """
-    breaks = [m.end() for m in PARA_BREAK_RE.finditer(text, 0, start)]
-    p_start = breaks[-1] if breaks else 0
-    nxt = PARA_BREAK_RE.search(text, end)
-    p_end = nxt.start() if nxt else len(text)
+    out = []
+    for m in ENTRY_RE.finditer(text):
+        before = text[:m.start()].rstrip(" \t")
+        # ...or straight after the header date: "DX news for November 12, 2026 3X, GUINEA."
+        if not before or before.endswith(("\n", ".", ":")) or re.search(r"\b20\d\d$", before):
+            out.append(m.start())
+    return out
+
+
+def segment_bounds(text):
+    """Sorted boundaries splitting the text into one piece per station write-up."""
+    b = {0, len(text)}
+    b.update(m.end() for m in PARA_BREAK_RE.finditer(text))
+    b.update(m.start() for m in PARA_BREAK_RE.finditer(text))
+    b.update(entry_starts(text))
+    b.update(m.start() for m in END_RE.finditer(text))
+    return sorted(b)
+
+
+def paragraph_at(text, start, end, limit=900, bounds=None):
+    """The write-up around a match: from the entry/paragraph start before it to the
+    next entry/paragraph start, whitespace collapsed.
+
+    Bulletins wrap each entry over several lines and sometimes run entries together
+    without blank lines, so both blank lines and entry headers ("KC4, ANTARCTICA.")
+    count as boundaries. Very long pieces are trimmed around the match.
+    """
+    import bisect
+    bounds = bounds or segment_bounds(text)
+    i = bisect.bisect_right(bounds, start) - 1
+    p_start = bounds[max(i, 0)]
+    p_end = bounds[min(i + 1, len(bounds) - 1)]
+    if p_end < end:
+        p_end = end
     para = re.sub(r"\s+", " ", text[p_start:p_end]).strip()
     if len(para) > limit:
         call = text[start:end]
-        i = para.find(call)
-        lo = max(0, i - limit // 3)
+        j = para.find(call)
+        lo = max(0, j - limit // 3)
         para = ("… " if lo else "") + para[lo:lo + limit].rstrip() + " …"
     return para
 
@@ -121,7 +158,13 @@ def extract_calls(text, ignore_case=False):
         text_for_match = text.upper()
     else:
         text_for_match = text
+    bounds = segment_bounds(text)
+    headers = set(entry_starts(text))           # "VK9X, CHRISTMAS ISLAND." - a prefix, not a call
+    cm = CREDITS_RE.search(text)
+    credits_at = cm.start() if cm else len(text)  # contest round-up + credits at the end
     for m in CALL_RE.finditer(text_for_match):
+        if m.start() in headers:
+            continue
         call = m.group(1).upper()
         base = call.split("/")
         # pick the longest piece as the "base" for sanity checks
@@ -132,10 +175,11 @@ def extract_calls(text, ignore_case=False):
             continue
         before = text_for_match[max(0, m.start() - 60):m.start()]
         after = text_for_match[m.end():m.end() + 60]
-        is_manager = bool(MANAGER_BEFORE_RE.search(before)
+        is_manager = bool(m.start() >= credits_at
+                          or MANAGER_BEFORE_RE.search(before)
                           or CREDIT_BEFORE_RE.search(before)
                           or HOME_AFTER_RE.search(after))
-        line = paragraph_at(text, m.start(), m.end())
+        line = paragraph_at(text, m.start(), m.end(), bounds=bounds)
         if call not in found:
             found[call] = {"context": line, "manager": is_manager}
         elif not is_manager:
@@ -385,6 +429,8 @@ def check_calls(calls, wl, band=None, mode=None, on_progress=None, ref_date=None
         })
         ent["calls"].append(call)
         ent["windows"].append(activity_window(meta["context"], ref_date))
+        if meta["context"] not in ent.setdefault("contexts", []):
+            ent["contexts"].append(meta["context"])
         if r["call_worked"]:
             ent["worked_calls"].append(call)
 
@@ -416,7 +462,8 @@ def check_calls(calls, wl, band=None, mode=None, on_progress=None, ref_date=None
             "dxcc": e["dxcc"], "dxcc_id": e["dxcc_id"], "continent": e["cont"],
             "callsigns": " ".join(e["calls"]),
             "already_worked_calls": " ".join(e["worked_calls"]),
-            "context": e["context"],
+            # one write-up per bulletin entry, separated by a blank line
+            "context": "\n\n".join(e.get("contexts") or [e["context"]]),
         })
     rows.sort(key=lambda r: (r["ended"], order[r["kind"]], r["dxcc"]))
     return {"entities": rows, "unresolved": unresolved}
