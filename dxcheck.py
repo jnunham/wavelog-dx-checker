@@ -89,28 +89,53 @@ def strip_html(text):
 
 
 PARA_BREAK_RE = re.compile(r"\n[ \t]*\n")
-# Start of a bulletin entry: "KC4, ANTARCTICA.", "EA9, CEUTA AND MELILLA.", "3D2/R, ROTUMA."
-ENTRY_RE = re.compile(r"[A-Z0-9]{1,4}(?:/[A-Z0-9]{1,4})?(?:\s*,\s*[A-Z0-9]{1,4}(?:/[A-Z0-9]{1,4})?)*"
-                      r",\s+[A-Z][A-Z&'\-]+(?:\s+[A-Z&'\-]+\.?){0,6}\.(?=\s|$)")
-# End-of-bulletin markers and the closing credits line
-END_RE = re.compile(r"\bNNNN\b|/EX\b|This week's bulletin was made possible|THIS WEEKEND ON THE RADIO",
-                    re.IGNORECASE)
-CREDITS_RE = re.compile(r"This week's bulletin was made possible|THIS WEEKEND ON THE RADIO", re.IGNORECASE)
+# Start of a bulletin entry. ARRL uses both orders:
+#   prefix first:  "KC4, ANTARCTICA."   "EA9, CEUTA AND MELILLA."   "3D2/R, ROTUMA."
+#   country first: "UGANDA, 5X."        "TRINIDAD AND TOBAGO, 9Y."   "ITU HQ, 4U_ITU."
+_PFX = r"[A-Z0-9]{1,4}(?:[/_][A-Z0-9]{1,4})?"
+_NAME = r"[A-Z][A-Z&'\-]+(?:\s+[A-Z&'\-]+\.?){0,6}"
+ENTRY_RE = re.compile(r"(?:" + _PFX + r"(?:\s*,\s*" + _PFX + r")*,\s+" + _NAME + r"|"
+                      + _NAME + r",\s+" + _PFX + r"(?:\s*,\s*" + _PFX + r")*)\.(?=\s|$)")
+# The credits paragraph (at the top of ARRL bulletins) and the contest round-up
+# (at the end) mention callsigns that aren't DX stations.
+CREDITS_RE = re.compile(r"This\s+week.s\s+bulletin\s+(?:was\s+|is\s+)?made\s+possible", re.IGNORECASE)
+CONTESTS_RE = re.compile(r"THIS\s+WEEKEND\s+ON\s+THE\s+RADIO")
+END_RE = re.compile(r"\bNNNN\b|/EX\b")
 
 
 def entry_starts(text):
-    """Positions where a bulletin entry ("KC4, ANTARCTICA. ...") begins.
+    """Positions where a bulletin entry ("KC4, ANTARCTICA." / "UGANDA, 5X.") begins.
 
     Only counts a match at the start of the text, a line, or right after a sentence,
     so "QSL via EA5GL, LOTW." in the middle of a sentence isn't mistaken for one.
+    The prefix part must look like a prefix (contain a digit, or be 1-2 letters).
     """
     out = []
     for m in ENTRY_RE.finditer(text):
         before = text[:m.start()].rstrip(" \t")
         # ...or straight after the header date: "DX news for November 12, 2026 3X, GUINEA."
-        if not before or before.endswith(("\n", ".", ":")) or re.search(r"\b20\d\d$", before):
-            out.append(m.start())
+        if not (not before or before.endswith(("\n", ".", ":")) or re.search(r"\b20\d\d$", before)):
+            continue
+        head = m.group(0)[:-1]
+        parts = [p.strip() for p in head.split(",")]
+        if not any(re.fullmatch(r"[A-Z0-9/_]*\d[A-Z0-9/_]*|[A-Z]{1,2}", p) for p in parts):
+            continue
+        out.append(m.start())
     return out
+
+
+def skip_zones(text, starts=None):
+    """[(start, end)] spans whose callsigns are not DX stations: the credits
+    paragraph (up to the first entry after it) and the contest round-up to the end."""
+    starts = starts if starts is not None else entry_starts(text)
+    zones = []
+    for m in CREDITS_RE.finditer(text):
+        nxt = next((p for p in starts if p > m.start()), len(text))
+        zones.append((m.start(), nxt))
+    m = CONTESTS_RE.search(text)
+    if m:
+        zones.append((m.start(), len(text)))
+    return zones
 
 
 def segment_bounds(text):
@@ -119,7 +144,7 @@ def segment_bounds(text):
     b.update(m.end() for m in PARA_BREAK_RE.finditer(text))
     b.update(m.start() for m in PARA_BREAK_RE.finditer(text))
     b.update(entry_starts(text))
-    b.update(m.start() for m in END_RE.finditer(text))
+    b.update(m.start() for r in (END_RE, CREDITS_RE, CONTESTS_RE) for m in r.finditer(text))
     return sorted(b)
 
 
@@ -159,9 +184,9 @@ def extract_calls(text, ignore_case=False):
     else:
         text_for_match = text
     bounds = segment_bounds(text)
-    headers = set(entry_starts(text))           # "VK9X, CHRISTMAS ISLAND." - a prefix, not a call
-    cm = CREDITS_RE.search(text)
-    credits_at = cm.start() if cm else len(text)  # contest round-up + credits at the end
+    starts = entry_starts(text)
+    headers = set(starts)                       # "VK9X, CHRISTMAS ISLAND." - a prefix, not a call
+    zones = skip_zones(text, starts)            # credits paragraph + contest round-up
     for m in CALL_RE.finditer(text_for_match):
         if m.start() in headers:
             continue
@@ -175,7 +200,7 @@ def extract_calls(text, ignore_case=False):
             continue
         before = text_for_match[max(0, m.start() - 60):m.start()]
         after = text_for_match[m.end():m.end() + 60]
-        is_manager = bool(m.start() >= credits_at
+        is_manager = bool(any(a <= m.start() < b for a, b in zones)
                           or MANAGER_BEFORE_RE.search(before)
                           or CREDIT_BEFORE_RE.search(before)
                           or HOME_AFTER_RE.search(after))
@@ -305,7 +330,7 @@ _DATE_RE = re.compile(_MON + r"\s+(\d{1,2})(?:st|nd|rd|th)?"
 _UNTIL_MONTH_RE = re.compile(r"\b(?:until|till|through|thru|to)\s+(?:the\s+end\s+of\s+|mid-?|late\s+|early\s+)?"
                              + _MON + r"(?!\.?\s*\d{1,2}\b(?!\d))(?:\s+(20\d\d))?", re.IGNORECASE)
 # reference date in the bulletin itself: "ARLD045 DX news for November 12, 2026"
-_REF_RE = re.compile(r"\bfor\s+" + _MON + r"\s+(\d{1,2}),\s*(20\d\d)", re.IGNORECASE)
+_REF_RE = re.compile(r"\b(?:for|CT)\s+" + _MON + r"\s+(\d{1,2}),\s*(20\d\d)", re.IGNORECASE)
 
 
 def bulletin_date(text):

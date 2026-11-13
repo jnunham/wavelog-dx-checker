@@ -1,0 +1,33 @@
+SB DX @ ARL $ARLD045
+ARLD045 DX news
+
+ZCZC AE45
+QST de W1AW
+DX Bulletin 45  ARLD045
+From ARRL Headquarters
+Newington, CT  November 12, 2026
+To all radio amateurs
+
+SB DX ARL ARLD045
+ARLD045 DX news
+
+This week's bulletin is made possible with information provided by The
+Daily DX, 425 DX News, DXNL, OPDX, Contest Corral from QST, and the ARRL
+Contest Calendar and WA7BNM websites. Thanks to all.
+
+KC4, ANTARCTICA. Andrew, KL5SE, is QRV as KC4USV and KC4/KL5SE from
+the Antarctic region, IOTA AN-016. Activity is primarily on 20 meters
+using SSB and FT8.
+
+D4, CAPE VERDE. Charlie, EI8JB, will be QRV as D44JB from Santo Antao
+Island, IOTA AF-086, from November 13 to 20. QSL via LoTW.
+
+VE, CANADA. Pierre, VE3KTN, will be QRV as VY0ERC from the Eureka
+weather station, IOTA NA-008, from November 12 to December 10.
+
+THIS WEEKEND ON THE RADIO. The NCCC FT4 Sprint, K1USN Slow Speed CW
+Test, and the ARRL EME Contest are on tap. Please see November QST,
+page 66, and the ARRL and WA7BNM contest websites for details.
+
+NNNN
+/EX

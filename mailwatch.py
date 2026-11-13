@@ -455,9 +455,9 @@ def run_once(wl, cfg=None, dry_run=False, resend=False, web_url=None, log=print)
                 calls = {c: v for c, v in calls.items() if not v["manager"]}
                 if not calls:
                     log(f"[mail] {subj}: no callsigns found, skipping")
-                    msgs.append(f"“{subj}”: no DX callsigns in it, skipped")
-                    if not dry_run:
-                        state["seen"].append(mid)
+                    msgs.append(f"“{subj}”: no DX stations found in it, so no alert was sent")
+                    # Deliberately not marked as handled: if this was a parsing problem,
+                    # the next check (after an update) picks the bulletin up again.
                     continue
                 ref = dxcheck.bulletin_date(text) or _when(date).date()
                 result = dxcheck.check_calls(calls, wl, band=cfg["band"], mode=cfg["mode"], ref_date=ref)

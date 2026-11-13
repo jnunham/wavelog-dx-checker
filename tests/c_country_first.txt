@@ -1,0 +1,34 @@
+SB DX @ ARL $ARLD026
+ARLD026 DX news
+
+ZCZC AE26
+QST de W1AW
+DX Bulletin 26  ARLD026
+From ARRL Headquarters
+Newington CT  November 12, 2026
+To all radio amateurs
+
+SB DX ARL ARLD026
+ARLD026 DX news
+
+This week's bulletin was made possible with information provided by
+The Daily DX, the OPDX Bulletin, 425 DX News, DXNL, Contest Corral
+from QST and the ARRL Contest Calendar and WA7BNM web sites.  Thanks
+to all.
+
+ITU HQ, 4U_ITU. Members of the ITU Amateur Radio Club will be QRV as
+4U1ITU from November 14 to 16. QSL via LoTW.
+
+UGANDA, 5X. John, KF5NSR, is QRV as 5X2Z from Kampala. Activity is on
+HF using various modes.
+
+TRINIDAD AND TOBAGO, 9Y. Members of the TTARL will be QRV as 9Z4Y
+until November 30. QSL via W3HNK.
+
+SPAIN, EA. Special event station AO100IARU is QRV until November 1.
+
+THIS WEEKEND ON THE RADIO.  The NCCC CW Sprint, K1USN Slow Speed CW
+Test and the WAE DX RTTY Contest are all on tap.
+
+NNNN
+/EX
