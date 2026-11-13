@@ -113,6 +113,7 @@ CHECK_LOCK = threading.Semaphore(1)
 
 def parse_calls(body):
     text = dxcheck.strip_html(str(body.get("text", "")))
+    body["_ref_date"] = dxcheck.bulletin_date(text)
     calls = dxcheck.extract_calls(text, ignore_case=bool(body.get("ignore_case")))
     skipped = [c for c, v in calls.items() if v["manager"]]
     if not body.get("include_managers"):
@@ -446,7 +447,8 @@ class Handler(BaseHTTPRequestHandler):
                 def progress(i, total, call, err=None):
                     emit({"type": "progress", "i": i, "total": total, "call": call,
                           **({"error": err} if err else {})})
-                out = dxcheck.check_calls(calls, wl, band=band, mode=mode, on_progress=progress)
+                out = dxcheck.check_calls(calls, wl, band=band, mode=mode, on_progress=progress,
+                                          ref_date=body.get("_ref_date"))
             emit({"type": "done", "band": band, "mode": mode, **out})
         except RuntimeError as e:
             emit({"type": "error", "error": str(e)})

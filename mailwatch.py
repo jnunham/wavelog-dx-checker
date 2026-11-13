@@ -20,6 +20,11 @@ can also be given as environment variables, which take precedence:
   MAIL_FROM_FILTER     optional sender to match, e.g. "arrl.org"
   MAIL_CHECK_HOURS     how often to look, default 4
   MAIL_LOOKBACK_DAYS   on the very first run, only consider mail this recent, default 14
+  MAIL_MAX_AGE_DAYS    never alert on a bulletin older than this, default 10
+
+Only the newest bulletin is ever alerted on: if several new ones are found (first run,
+or the container was off for a while) the older ones are skipped. Stations whose
+activity dates in the bulletin have already passed are left out of the alert.
   MAIL_NOTIFY_NONE     1 = also email when a bulletin has nothing new (default off)
   MAIL_BAND / MAIL_MODE  optional: also report band/mode slots in alerts (e.g. 10m / CW)
   STATE_DIR            where state.json / config.json live, default /data
@@ -71,6 +76,7 @@ def config():
         "from_filter": e.get("mail_from_filter"),
         "check_hours": float(e.get("mail_check_hours") or 4),
         "lookback_days": int(e.get("mail_lookback_days") or 14),
+        "max_age_days": int(e.get("mail_max_age_days") or 10),
         "notify_none": bool(e.get("mail_notify_none")),
         "band": e.get("mail_band"),
         "mode": e.get("mail_mode"),
@@ -135,6 +141,15 @@ def message_text(msg):
     if plain:
         return "\n".join(plain)
     return dxcheck.strip_html("\n".join(htm))
+
+
+def _when(date_header):
+    """Parse an email Date header to an aware datetime (epoch if unparseable)."""
+    try:
+        d = email.utils.parsedate_to_datetime(date_header)
+        return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
+    except Exception:
+        return dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
 
 
 def _quote(s):
@@ -225,8 +240,20 @@ def fetch_bulletins(cfg, state, resend=False):
             mid = (h.get("Message-ID") or f"{num.decode()}-{h.get('Date')}").strip()
             found.append((num, mid, subj, h.get("Date", "")))
 
+        found.sort(key=lambda f: _when(f[3]))
         seen_ids = set(state["seen"])
-        pick = found[-1:] if resend else [f for f in found if f[1] not in seen_ids]
+        unseen = [f for f in found if f[1] not in seen_ids]
+        skipped, too_old = [], None
+        if resend:
+            pick = found[-1:]
+        else:
+            # Only the newest bulletin matters; older unhandled ones are superseded.
+            pick = unseen[-1:]
+            skipped = [(f[1], f[2]) for f in unseen[:-1]]
+            if pick and (dt.datetime.now(dt.timezone.utc) - _when(pick[0][3])).days > cfg["max_age_days"]:
+                too_old = (pick[0][2], pick[0][3])
+                skipped.append((pick[0][1], pick[0][2]))
+                pick = []
         seen = [(subj, date) for num, mid, subj, date in found if mid in seen_ids]
         new = []
         for num, mid, subj, date in pick:
@@ -236,6 +263,7 @@ def fetch_bulletins(cfg, state, resend=False):
         hints = other_arrl[-5:][::-1] if not found else []
         return {"new": [(mid, subj, date, message_text(msg)) for mid, subj, date, msg in new],
                 "matched": len(found), "seen": seen, "folder": folder,
+                "skipped": skipped, "too_old": too_old,
                 "since": since, "terms": terms, "hints": hints}
     finally:
         try:
@@ -284,6 +312,7 @@ def _title(s):
 
 def build_alert(subject, result, band=None, mode=None, web_url=None):
     needed = [e for e in result["entities"] if e["needed"]]
+    n_ended = sum(1 for e in result["entities"] if e.get("ended") and e["kind"] != "have")
     n_new = sum(1 for e in needed if e["kind"] == "new")
     n_qsl = sum(1 for e in needed if e["kind"] == "need_qsl")
     n_slot = sum(1 for e in needed if e["kind"] in ("band", "mode"))
@@ -302,11 +331,14 @@ def build_alert(subject, result, band=None, mode=None, web_url=None):
     # plain text
     lines = [f"{subject}", f"{len(result['entities'])} DXCC entities mentioned, {len(needed)} needed.", ""]
     for e in needed:
-        lines.append(f"{e['status']:<20} {_title(e['dxcc'])}  ({e['callsigns']})")
+        lines.append(f"{e['status']:<20} {_title(e['dxcc'])}  ({e['callsigns']})"
+                     + (f"  [{e['when']}]" if e.get("when") else ""))
         lines.append(f"{'':<20} {e['context']}")
         lines.append("")
     if not needed:
         lines.append("You already have every entity in this bulletin confirmed.")
+    if n_ended:
+        lines.append(f"Not listed: {n_ended} needed entit{'y' if n_ended == 1 else 'ies'} whose activity has already ended.")
     if result["unresolved"]:
         lines.append(f"Couldn't resolve: {', '.join(result['unresolved'])}")
     if web_url:
@@ -328,12 +360,18 @@ def build_alert(subject, result, band=None, mode=None, web_url=None):
             f'color:{fg};background:{bg};padding:3px 7px;border-radius:4px">{html.escape(e["status"])}</span></td>'
             f'<td style="padding:12px 0;border-bottom:1px solid #eee">'
             f'<div style="font-weight:600;font-size:15px">{html.escape(_title(e["dxcc"]))}'
-            f'<span style="color:#9aa0a8;font-weight:400;font-size:12px"> #{html.escape(e["dxcc_id"])}</span></div>'
+            f'<span style="color:#9aa0a8;font-weight:400;font-size:12px"> #{html.escape(e["dxcc_id"])}</span>'
+            + (f' <span style="font-weight:600;font-size:12px;color:#2b8a3e;background:#e9f7ec;border-radius:4px;'
+               f'padding:1px 6px;margin-left:6px">{html.escape(e["when"])}</span>' if e.get("when") else "")
+            + '</div>'
             f'<div style="margin:5px 0">{calls}</div>'
             f'<div style="color:#6b6f76;font-size:13px">{html.escape(e["context"])}</div></td></tr>')
     body = (f'<table style="border-collapse:collapse;width:100%">{"".join(rows)}</table>' if rows else
             '<p style="color:#2b8a3e;font-weight:600">You already have every entity in this bulletin confirmed.</p>')
     foot = ""
+    if n_ended:
+        foot += (f'<p style="color:#6b6f76;font-size:12px">Not listed: {n_ended} needed '
+                 f'entit{"y" if n_ended == 1 else "ies"} whose activity has already ended.</p>')
     if result["unresolved"]:
         foot += f'<p style="color:#6b6f76;font-size:12px">Couldn\'t resolve: {html.escape(", ".join(result["unresolved"]))}</p>'
     if web_url:
@@ -386,7 +424,18 @@ def run_once(wl, cfg=None, dry_run=False, resend=False, web_url=None, log=print)
         found = fetch_bulletins(cfg, state, resend=resend)
         where = (f"Searched {found['folder']} since {found['since'].strftime('%b %-d')} for subjects "
                  f"containing {' / '.join(found['terms'])}")
-        if not found["new"]:
+        notes = []
+        for mid, subj in found["skipped"]:
+            if not dry_run and mid not in state["seen"]:
+                state["seen"].append(mid)
+        n_older = len(found["skipped"]) - (1 if found["too_old"] else 0)
+        if n_older:
+            notes.append(f"skipped {n_older} older bulletin{'s' if n_older != 1 else ''}")
+        if found["too_old"]:
+            subj, date = found["too_old"]
+            msg = (f"Newest bulletin “{subj}” ({_short_date(date)}) is more than "
+                   f"{cfg['max_age_days']} days old, so no alert was sent.")
+        elif not found["new"]:
             if found["matched"]:
                 subj, date = found["seen"][-1]
                 msg = (f"No new bulletins. Latest: “{subj}” ({_short_date(date)}), already handled. "
@@ -409,7 +458,8 @@ def run_once(wl, cfg=None, dry_run=False, resend=False, web_url=None, log=print)
                     if not dry_run:
                         state["seen"].append(mid)
                     continue
-                result = dxcheck.check_calls(calls, wl, band=cfg["band"], mode=cfg["mode"])
+                ref = dxcheck.bulletin_date(text) or _when(date).date()
+                result = dxcheck.check_calls(calls, wl, band=cfg["band"], mode=cfg["mode"], ref_date=ref)
                 m_subj, m_text, m_html, n_needed = build_alert(subj, result, cfg["band"], cfg["mode"], web_url)
                 if n_needed or cfg["notify_none"] or resend:
                     if dry_run:
@@ -430,6 +480,8 @@ def run_once(wl, cfg=None, dry_run=False, resend=False, web_url=None, log=print)
                                              "alert": m_subj,
                                              "checked": dt.datetime.now().isoformat(timespec="seconds")})
             msg = "; ".join(msgs)
+        if notes:
+            msg += " (" + "; ".join(notes) + ")"
         if not dry_run:
             save_state(cfg, state)
         STATUS.update(last_check=time.time(), last_result=msg, last_error=None)

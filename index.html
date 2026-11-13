@@ -160,6 +160,12 @@
   .ent-calls { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
   .ctx { grid-column: 2; font-size: 13px; color: var(--muted); margin-top: 6px; }
   @media (max-width: 560px) { .ctx { grid-column: 1; } }
+  .when { margin-left: 8px; font: 600 11.5px var(--sans); color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent);
+          padding: 2px 7px; border-radius: 4px; vertical-align: 1px; white-space: nowrap; }
+  .when.over { color: var(--faint); background: var(--have-bg); }
+  li.is-ended { opacity: .6; }
+  .endedbox { border-top: 1px solid var(--line); }
+  .endedbox > summary { padding: 12px 20px; cursor: pointer; font-size: 13px; color: var(--muted); }
   .ctx .txt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .ctx.open .txt { display: block; -webkit-line-clamp: unset; }
   .ctx .more { margin-top: 3px; font-size: 12.5px; }
@@ -420,9 +426,10 @@
   // ---- render results ----
   function render(d) {
     const ents = d.entities;
-    const count = (k) => ents.filter((e) => k.includes(e.kind)).length;
+    const count = (k) => ents.filter((e) => e.needed && k.includes(e.kind)).length;
     const nNew = count(["new"]), nQsl = count(["need_qsl"]), nSlot = count(["band", "mode"]);
-    const shown = all.checked ? ents : ents.filter((e) => e.needed);
+    const ended = ents.filter((e) => e.ended && e.kind !== "have");
+    const shown = ents.filter((e) => e.needed || (all.checked && !ended.includes(e)));
     const slotLabel = d.band ? `${d.band}${d.mode ? " " + d.mode : ""} slots` : "band slots";
     const stat = (n, t, cls) => `<div class="stat ${cls}${n ? "" : " zero"}"><div class="n">${n}</div><div class="t">${t}</div></div>`;
 
@@ -433,19 +440,28 @@
       </div><div class="sub"><span>${ents.length} entit${ents.length === 1 ? "y" : "ies"} in this bulletin</span>
       <span class="tools"><button class="linkbtn" id="copyBtn">Copy list</button><button class="linkbtn" id="csvBtn">Download CSV</button></span></div></div>`;
 
+    const item = (e) => {
+      const worked = new Set(e.already_worked_calls.split(" ").filter(Boolean));
+      const calls = e.callsigns.split(" ").filter(Boolean);
+      let ctx = esc(e.context);
+      calls.forEach((c) => { ctx = ctx.split(esc(c)).join(`<mark>${esc(c)}</mark>`); });
+      const when = e.when ? `<span class="when${e.ended ? " over" : ""}">${esc(e.when)}</span>` : "";
+      return `<li class="k-${e.kind}${e.ended ? " is-ended" : ""}"><span class="badge">${esc(e.status)}</span>
+        <div><div class="ent">${esc(titleCase(e.dxcc))}<span class="meta">#${esc(e.dxcc_id)}${e.continent ? " · " + esc(e.continent) : ""}</span>${when}</div>
+        <div class="ent-calls">${calls.map((c) => `<span class="chip${worked.has(c) ? " worked" : ""}" title="${worked.has(c) ? "Worked this call, not confirmed for DXCC" : ""}">${esc(c)}</span>`).join("")}</div></div>
+        <div class="ctx"><div class="txt">${ctx}</div><button class="linkbtn more" type="button" hidden>More</button></div></li>`;
+    };
+
     if (!shown.length) {
-      h += `<div class="nothing"><b>Nothing new this week.</b>Every entity in this bulletin is already confirmed${d.band ? " on " + esc(slotLabel.replace(" slots", "")) : ""}.</div>`;
+      h += ended.length
+        ? `<div class="nothing"><b>Nothing on the air you need.</b>The entities you need in this bulletin have already finished.</div>`
+        : `<div class="nothing"><b>Nothing new this week.</b>Every entity in this bulletin is already confirmed${d.band ? " on " + esc(slotLabel.replace(" slots", "")) : ""}.</div>`;
     } else {
-      h += `<ul class="list">` + shown.map((e) => {
-        const worked = new Set(e.already_worked_calls.split(" ").filter(Boolean));
-        const calls = e.callsigns.split(" ").filter(Boolean);
-        let ctx = esc(e.context);
-        calls.forEach((c) => { ctx = ctx.split(esc(c)).join(`<mark>${esc(c)}</mark>`); });
-        return `<li class="k-${e.kind}"><span class="badge">${esc(e.status)}</span>
-          <div><div class="ent">${esc(titleCase(e.dxcc))}<span class="meta">#${esc(e.dxcc_id)}${e.continent ? " · " + esc(e.continent) : ""}</span></div>
-          <div class="ent-calls">${calls.map((c) => `<span class="chip${worked.has(c) ? " worked" : ""}" title="${worked.has(c) ? "Worked this call, not confirmed for DXCC" : ""}">${esc(c)}</span>`).join("")}</div></div>
-          <div class="ctx"><div class="txt">${ctx}</div><button class="linkbtn more" type="button" hidden>More</button></div></li>`;
-      }).join("") + `</ul>`;
+      h += `<ul class="list">` + shown.map(item).join("") + `</ul>`;
+    }
+    if (ended.length) {
+      h += `<details class="endedbox"><summary>${ended.length} needed entit${ended.length === 1 ? "y has" : "ies have"} already finished</summary>
+        <ul class="list">${ended.map(item).join("")}</ul></details>`;
     }
 
     const foot = [];
@@ -456,14 +472,16 @@
     results.innerHTML = h;
 
     // Show "More" only where the write-up is actually cut off.
-    results.querySelectorAll(".ctx").forEach((c) => {
+    const fitMore = () => results.querySelectorAll(".ctx").forEach((c) => {
       const t = c.querySelector(".txt"), b = c.querySelector(".more");
       if (t.scrollHeight > t.clientHeight + 2) b.hidden = false;
       b.onclick = () => { const open = c.classList.toggle("open"); b.textContent = open ? "Less" : "More"; };
     });
+    fitMore();
+    const eb = results.querySelector(".endedbox"); if (eb) eb.addEventListener("toggle", fitMore);
 
     $("csvBtn").onclick = () => {
-      const cols = ["status", "dxcc", "dxcc_id", "continent", "callsigns", "already_worked_calls", "context"];
+      const cols = ["status", "dxcc", "dxcc_id", "continent", "callsigns", "when", "already_worked_calls", "context"];
       const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const csv = [cols.join(","), ...shown.map((e) => cols.map((c) => q(e[c])).join(","))].join("\r\n");
       const a = document.createElement("a");
@@ -472,7 +490,7 @@
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     };
     $("copyBtn").onclick = async (ev) => {
-      const t = shown.map((e) => `${e.status.padEnd(22)} ${titleCase(e.dxcc).padEnd(28)} ${e.callsigns}`).join("\n");
+      const t = shown.map((e) => `${e.status.padEnd(22)} ${titleCase(e.dxcc).padEnd(28)} ${e.callsigns}${e.when ? "  [" + e.when + "]" : ""}`).join("\n");
       try { await navigator.clipboard.writeText(t); ev.target.textContent = "Copied ✓"; }
       catch { ev.target.textContent = "Copy failed"; }
       setTimeout(() => { ev.target.textContent = "Copy list"; }, 1500);

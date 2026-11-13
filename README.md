@@ -41,6 +41,13 @@ Everything can be changed later under **Settings**.
   **DX Bulletin** or **DX News**. You can change the words in Settings.
 - Read or unread doesn't matter. It opens mail without marking it, and never moves
   or deletes anything.
+- **Only the latest bulletin:** if it finds several it hasn't handled (on the first
+  run, or after the container was off), it alerts on the newest one only and skips
+  the rest. A bulletin more than 10 days old never alerts (`MAIL_MAX_AGE_DAYS`).
+- **Only stations still to come or on the air:** activity dates are read from each
+  write-up ("from November 14 to 28", "until February"). Stations whose dates have
+  passed are left out of the alert, and shown under "already finished" on the page.
+  Write-ups without dates are kept, because it can't tell when those end.
 - **No duplicates:** each bulletin is handled once. Its unique message ID is
   remembered in `/data/state.json`, so later checks skip it.
 - The page shows what the last check searched and found. **Check inbox now** runs a
@@ -108,6 +115,7 @@ Any setting can also be given as an environment variable in `docker-compose.yml`
 | `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_TO` | Gmail address, app password, alert recipient |
 | `MAIL_CHECK_HOURS`, `MAIL_FOLDER`, `MAIL_SUBJECT`, `MAIL_FROM_FILTER` | When and where to look (defaults: 4, All Mail, `ARLD, DX Bulletin, DX News`) |
 | `MAIL_BAND`, `MAIL_MODE`, `MAIL_NOTIFY_NONE`, `PUBLIC_URL` | Alert options |
+| `MAIL_MAX_AGE_DAYS` | Never alert on a bulletin older than this (default 10) |
 | `MAIL_IMAP_HOST`, `MAIL_SMTP_HOST` | For providers other than Gmail (IMAP SSL 993, SMTP SSL 465) |
 | `LOOKUP_DELAY`, `CACHE_MINUTES`, `MAX_CALLS`, `PORT`, `COOKIE_SECURE` | Server tuning |
 

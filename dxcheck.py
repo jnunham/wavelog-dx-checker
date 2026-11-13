@@ -70,9 +70,10 @@ HOME_AFTER_RE = re.compile(
     r"|^[,\s]*(?:IS|WILL\s+BE|ARE)?\s*(?:SIGNING|USING\s+THE\s+CALL(?:SIGN)?)\b",
     re.IGNORECASE,
 )
-# Credits: "provided by K1XYZ", "thanks to N1ABC", "courtesy of ..."
+# Credits: "provided by K1XYZ", "thanks to N1ABC", "courtesy of ...", and the
+# bulletin header "QST de W1AW" (the sender, not a DX station)
 CREDIT_BEFORE_RE = re.compile(
-    r"(PROVIDED\s+BY|THANKS\s+TO|COURTESY\s+OF|INFORMATION\s+FROM|REPORTED\s+BY|ACCORDING\s+TO)"
+    r"(PROVIDED\s+BY|THANKS\s+TO|COURTESY\s+OF|INFORMATION\s+FROM|REPORTED\s+BY|ACCORDING\s+TO|QST\s+DE|\bDE)"
     r"[\s:,]*(?:(?:[A-Z0-9/]+|THE\s+[\w\s]+?)\s*(?:,|AND|OR)\s*)*$",
     re.IGNORECASE,
 )
@@ -240,7 +241,107 @@ class Wavelog:
         }
 
 
-def check_calls(calls, wl, band=None, mode=None, on_progress=None):
+# ---------------------------------------------------------------------------
+# Activity dates ("QRV from November 14 to 28", "until February", ...)
+# ---------------------------------------------------------------------------
+
+import calendar
+import datetime as _dt
+
+_MONTHS = {m.lower(): i for i, m in enumerate(calendar.month_name) if m}
+_MONTHS.update({m.lower(): i for i, m in enumerate(calendar.month_abbr) if m})
+_MONTHS["sept"] = 9
+_MON = r"(January|February|March|April|May|June|July|August|September|October|November|December|" \
+       r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)(?![a-z])\.?"
+# "November 14", "Nov. 14, 2026", "November 14 to 28", "November 14-28", "November 15 and 16"
+_DATE_RE = re.compile(_MON + r"\s+(\d{1,2})(?:st|nd|rd|th)?"
+                      r"(?:\s*(?:-|–|to|through|and)\s*(\d{1,2})(?:st|nd|rd|th)?\b(?!\s*(?:m\b|meters|UTC|Z\b)))?"
+                      r"(?:,?\s+(20\d\d))?", re.IGNORECASE)
+# "until February", "until mid-December", "through January 2027", "until the end of March"
+_UNTIL_MONTH_RE = re.compile(r"\b(?:until|till|through|thru|to)\s+(?:the\s+end\s+of\s+|mid-?|late\s+|early\s+)?"
+                             + _MON + r"(?!\.?\s*\d{1,2}\b(?!\d))(?:\s+(20\d\d))?", re.IGNORECASE)
+# reference date in the bulletin itself: "ARLD045 DX news for November 12, 2026"
+_REF_RE = re.compile(r"\bfor\s+" + _MON + r"\s+(\d{1,2}),\s*(20\d\d)", re.IGNORECASE)
+
+
+def bulletin_date(text):
+    """Date the bulletin was issued, if it says ("... DX news for November 12, 2026")."""
+    m = _REF_RE.search(text[:2000])
+    if m:
+        try:
+            return _dt.date(int(m.group(3)), _MONTHS[m.group(1).lower().rstrip(".")], int(m.group(2)))
+        except ValueError:
+            pass
+    return None
+
+
+def _resolve(month, day, year, ref):
+    """Turn a month/day (maybe without year) into a date near the bulletin date."""
+    if year:
+        try:
+            return _dt.date(int(year), month, day)
+        except ValueError:
+            return None
+    for y in (ref.year, ref.year + 1, ref.year - 1):
+        try:
+            d = _dt.date(y, month, day)
+        except ValueError:
+            continue
+        # bulletins look ahead: a date more than ~2 months before the bulletin is next year
+        if -62 <= (d - ref).days <= 300:
+            return d
+    return None
+
+
+_UNTIL_BEFORE_RE = re.compile(r"\b(?:until|till|through|thru|by|ending)\s+$", re.IGNORECASE)
+
+
+def activity_window(context, ref):
+    """(start, end) dates mentioned in a station's write-up, or (None, None).
+
+    start is None when only an end is given ("until November 30").
+    """
+    starts, ends = [], []
+    for m in _DATE_RE.finditer(context):
+        mon = _MONTHS[m.group(1).lower().rstrip(".")]
+        d1 = _resolve(mon, int(m.group(2)), m.group(4), ref)
+        d2 = _resolve(mon, int(m.group(3)), m.group(4), ref) if m.group(3) else None
+        only_end = bool(_UNTIL_BEFORE_RE.search(context[max(0, m.start() - 12):m.start()]))
+        if d1:
+            (ends if only_end else starts).append(d1)
+            ends.append(d1)
+        if d2 and d1 and d2 >= d1:
+            ends.append(d2)
+    for m in _UNTIL_MONTH_RE.finditer(context):
+        mon = _MONTHS[m.group(1).lower().rstrip(".")]
+        first = _resolve(mon, 1, m.group(2), ref)
+        if first:
+            ends.append(first.replace(day=calendar.monthrange(first.year, first.month)[1]))
+    if not ends:
+        return None, None
+    return (min(starts) if starts else None), max(ends)
+
+
+def window_label(start, end, today):
+    """Short human label: "Nov 14–28", "until Feb 28", "ended Nov 7", "on Nov 15"."""
+    if not end:
+        return ""
+    yr = lambda d: f", {d.year}" if d.year != today.year else ""
+    md = lambda d: d.strftime("%b %-d")
+    if end < today:
+        return f"ended {md(end)}{yr(end)}"
+    if start and start > today:
+        if start == end:
+            return f"on {md(start)}{yr(start)}"
+        if (start.year, start.month) == (end.year, end.month):
+            return f"{md(start)}–{end.day}{yr(end)}"
+        if start.year == end.year:
+            return f"{md(start)}–{md(end)}{yr(end)}"
+        return f"{md(start)}{yr(start)}–{md(end)}{yr(end)}"
+    return f"until {md(end)}{yr(end)}"
+
+
+def check_calls(calls, wl, band=None, mode=None, on_progress=None, ref_date=None, today=None):
     """Look up each call in Wavelog and group by DXCC entity.
 
     calls: {callsign: {"context": str, ...}} as returned by extract_calls().
@@ -248,8 +349,15 @@ def check_calls(calls, wl, band=None, mode=None, on_progress=None):
     Raises RuntimeError if the very first lookup fails (bad URL/key), otherwise
     records failed calls as unresolved and keeps going.
 
+    ref_date: when the bulletin was issued (to place dates like "November 14" in the
+    right year); today: for deciding what has already ended. Both default to today.
+
     Returns {"entities": [...], "unresolved": [...]} with entities sorted needed-first.
+    Each entity has "start"/"end" (ISO dates or None), "when" (e.g. "Nov 14–28") and
+    "ended" (True when every listed station's activity has finished).
     """
+    today = today or _dt.date.today()
+    ref_date = ref_date or today
     entities = {}
     unresolved = []
     total = len(calls)
@@ -273,9 +381,10 @@ def check_calls(calls, wl, band=None, mode=None, on_progress=None):
             "confirmed": r["dxcc_confirmed"],
             "confirmed_band": r["dxcc_confirmed_on_band"],
             "confirmed_band_mode": r["dxcc_confirmed_on_band_mode"],
-            "calls": [], "worked_calls": [], "context": meta["context"],
+            "calls": [], "worked_calls": [], "context": meta["context"], "windows": [],
         })
         ent["calls"].append(call)
+        ent["windows"].append(activity_window(meta["context"], ref_date))
         if r["call_worked"]:
             ent["worked_calls"].append(call)
 
@@ -292,14 +401,24 @@ def check_calls(calls, wl, band=None, mode=None, on_progress=None):
     rows = []
     for e in entities.values():
         kind, label = status(e)
+        starts = [w[0] for w in e["windows"]]
+        ends = [w[1] for w in e["windows"]]
+        # If any station has no dates we can't tell it's over, so keep the entity.
+        end = max(ends) if ends and all(ends) else None
+        start = min(starts) if starts and all(starts) else None
+        ended = bool(end and end < today)
         rows.append({
-            "kind": kind, "status": label, "needed": kind != "have",
+            "start": start.isoformat() if start else None,
+            "end": end.isoformat() if end else None,
+            "when": window_label(start, end, today),
+            "ended": ended,
+            "kind": kind, "status": label, "needed": kind != "have" and not ended,
             "dxcc": e["dxcc"], "dxcc_id": e["dxcc_id"], "continent": e["cont"],
             "callsigns": " ".join(e["calls"]),
             "already_worked_calls": " ".join(e["worked_calls"]),
             "context": e["context"],
         })
-    rows.sort(key=lambda r: (order[r["kind"]], r["dxcc"]))
+    rows.sort(key=lambda r: (r["ended"], order[r["kind"]], r["dxcc"]))
     return {"entities": rows, "unresolved": unresolved}
 
 
@@ -383,13 +502,15 @@ def main():
             print(f"\rLooking up {i}/{total}: {call:<14}", end="", file=sys.stderr, flush=True)
 
     try:
-        out = check_calls(calls, wl, band=args.band, mode=args.mode, on_progress=progress)
+        out = check_calls(calls, wl, band=args.band, mode=args.mode, on_progress=progress,
+                          ref_date=bulletin_date(text))
     except RuntimeError as e:
         sys.exit(f"\nError: {e}")
     print("\r" + " " * 40 + "\r", end="", file=sys.stderr)
     entities, unresolved = out["entities"], out["unresolved"]
     n_needed = sum(1 for r in entities if r["needed"])
-    results = [{k: v for k, v in r.items() if k not in ("needed", "kind")}
+    n_ended = sum(1 for r in entities if r["ended"] and r["kind"] != "have")
+    results = [{k: v for k, v in r.items() if k not in ("needed", "kind", "start", "end")}
                for r in entities if args.all or r["needed"]]
 
     if args.csv:
@@ -415,11 +536,13 @@ def main():
         w_dxcc = min(32, max(len(r["dxcc"]) for r in results))
         for r in results:
             print(f"  {r['status']:<{w_status}}  {r['dxcc'][:w_dxcc]:<{w_dxcc}}  "
-                  f"{r['callsigns']}")
+                  f"{r['callsigns']}" + (f"   [{r['when']}]" if r['when'] else ""))
             print(f"  {'':<{w_status}}  {'':<{w_dxcc}}  > {r['context'][:100]}")
     else:
         print("  Nothing new - you've got every entity in this bulletin confirmed.")
     print()
+    if n_ended and not args.all:
+        print(f"Not listed: {n_ended} needed entit{'y' if n_ended == 1 else 'ies'} whose activity has already ended.")
     if unresolved:
         print(f"Couldn't resolve a DXCC for: {', '.join(unresolved)}")
     if managers and not args.include_managers:

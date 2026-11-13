@@ -54,6 +54,7 @@ FIELDS = {
     "mail_from_filter":   ("MAIL_FROM_FILTER", str),
     "mail_check_hours":   ("MAIL_CHECK_HOURS", float),
     "mail_lookback_days": ("MAIL_LOOKBACK_DAYS", int),
+    "mail_max_age_days":  ("MAIL_MAX_AGE_DAYS", int),
     "mail_notify_none":   ("MAIL_NOTIFY_NONE", bool),
     "mail_band":          ("MAIL_BAND", str),
     "mail_mode":          ("MAIL_MODE", str),
@@ -63,7 +64,7 @@ SECRETS = {"wavelog_key", "mail_password"}
 DEFAULTS = {
     "mail_imap_host": "imap.gmail.com", "mail_smtp_host": "smtp.gmail.com",
     "mail_check_hours": 4.0,
-    "mail_lookback_days": 14, "mail_notify_none": False,
+    "mail_lookback_days": 14, "mail_max_age_days": 10, "mail_notify_none": False,
     "wavelog_insecure": False, "wavelog_no_index_php": False,
 }
 
