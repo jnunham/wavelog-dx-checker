@@ -160,6 +160,10 @@
   .ent-calls { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
   .ctx { grid-column: 2; font-size: 13px; color: var(--muted); margin-top: 6px; }
   @media (max-width: 560px) { .ctx { grid-column: 1; } }
+  .ctx .txt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .ctx.open .txt { display: block; -webkit-line-clamp: unset; }
+  .ctx .more { margin-top: 3px; font-size: 12.5px; }
+  .ctx .more[hidden] { display: none; }
   .ctx mark { background: none; color: var(--ink); font-weight: 600; font-family: var(--mono); font-size: 12.5px; }
 
   .foot { padding: 14px 20px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); display: grid; gap: 6px; }
@@ -171,6 +175,8 @@
   .mail .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .mail .head b { color: var(--ink); font-size: 13px; }
   .mail .e { color: var(--new); margin-top: 4px; }
+  .mail .r { margin-top: 4px; }
+  .mail .acts { display: flex; gap: 16px; margin-top: 4px; }
   .mail ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 3px; }
   .mail li { display: flex; justify-content: space-between; gap: 10px; }
   .mail li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -304,16 +310,19 @@
     }
     el.hidden = false;
     let h = `<div class="head"><span><b>Inbox watch</b> · every ${m.every_hours} h · ${m.last_check ? "checked " + ago(m.last_check) : "not checked yet"}</span>
-      <button class="linkbtn" id="mailRun" ${m.running ? "disabled" : ""}>${m.running ? "Checking…" : "Check inbox now"}</button></div>`;
+      </div><div class="acts">${m.running ? "<span>Checking…</span>" :
+        `<button class="linkbtn" id="mailRun">Check inbox now</button>${m.history && m.history.length ? '<button class="linkbtn" id="mailResend" title="Run the newest bulletin again and email the result">Re-check latest</button>' : ""}`}</div>`;
     if (m.last_error) h += `<div class="e">${esc(m.last_error)}</div>`;
-    else if (m.last_result) h += `<div>${esc(m.last_result)}</div>`;
+    else if (m.last_result) h += `<div class="r">${esc(m.last_result)}</div>`;
     if (m.history && m.history.length)
       h += `<ul>${m.history.map((x) => `<li><span title="${esc(x.alert)}">${esc(x.subject)}</span><span class="n">${x.needed} needed</span></li>`).join("")}</ul>`;
     el.innerHTML = h;
-    $("mailRun").onclick = async () => {
-      await authFetch("api/mail/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-      pollMail(true);
+    const runMail = async (resend) => {
+      await authFetch("api/mail/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resend }) });
+      renderMail({ ...m, running: true });
     };
+    if ($("mailRun")) $("mailRun").onclick = () => runMail(false);
+    if ($("mailResend")) $("mailResend").onclick = () => runMail(true);
     pollMail(m.running);
   }
   let mailTimer = null;
@@ -435,7 +444,7 @@
         return `<li class="k-${e.kind}"><span class="badge">${esc(e.status)}</span>
           <div><div class="ent">${esc(titleCase(e.dxcc))}<span class="meta">#${esc(e.dxcc_id)}${e.continent ? " · " + esc(e.continent) : ""}</span></div>
           <div class="ent-calls">${calls.map((c) => `<span class="chip${worked.has(c) ? " worked" : ""}" title="${worked.has(c) ? "Worked this call, not confirmed for DXCC" : ""}">${esc(c)}</span>`).join("")}</div></div>
-          <div class="ctx">${ctx}</div></li>`;
+          <div class="ctx"><div class="txt">${ctx}</div><button class="linkbtn more" type="button" hidden>More</button></div></li>`;
       }).join("") + `</ul>`;
     }
 
@@ -445,6 +454,13 @@
     if (d.errors.length) foot.push(`<div>Lookup errors: ${d.errors.map(esc).join("; ")}</div>`);
     if (foot.length) h += `<div class="foot">${foot.join("")}</div>`;
     results.innerHTML = h;
+
+    // Show "More" only where the write-up is actually cut off.
+    results.querySelectorAll(".ctx").forEach((c) => {
+      const t = c.querySelector(".txt"), b = c.querySelector(".more");
+      if (t.scrollHeight > t.clientHeight + 2) b.hidden = false;
+      b.onclick = () => { const open = c.classList.toggle("open"); b.textContent = open ? "Less" : "More"; };
+    });
 
     $("csvBtn").onclick = () => {
       const cols = ["status", "dxcc", "dxcc_id", "continent", "callsigns", "already_worked_calls", "context"];

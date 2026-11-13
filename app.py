@@ -327,6 +327,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"error": "Inbox watching isn't set up."})
             threading.Thread(target=mailwatch.run_once, args=(wl,),
                              kwargs={"web_url": mailwatch.config()["public_url"],
+                                     "resend": bool(body.get("resend")),
                                      "log": lambda m: print(m, file=sys.stderr, flush=True)},
                              daemon=True).start()
             return self._json(202, {"started": True})

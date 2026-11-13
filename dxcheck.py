@@ -87,6 +87,28 @@ def strip_html(text):
     return html.unescape(text)
 
 
+PARA_BREAK_RE = re.compile(r"\n[ \t]*\n")
+
+
+def paragraph_at(text, start, end, limit=1200):
+    """The whole paragraph (blank-line separated) around a match, whitespace collapsed.
+
+    Bulletins wrap each entity's write-up over several lines, so the line alone cuts
+    sentences off. Very long paragraphs are trimmed around the match.
+    """
+    breaks = [m.end() for m in PARA_BREAK_RE.finditer(text, 0, start)]
+    p_start = breaks[-1] if breaks else 0
+    nxt = PARA_BREAK_RE.search(text, end)
+    p_end = nxt.start() if nxt else len(text)
+    para = re.sub(r"\s+", " ", text[p_start:p_end]).strip()
+    if len(para) > limit:
+        call = text[start:end]
+        i = para.find(call)
+        lo = max(0, i - limit // 3)
+        para = ("… " if lo else "") + para[lo:lo + limit].rstrip() + " …"
+    return para
+
+
 def extract_calls(text, ignore_case=False):
     """Return {callsign: {"context": line, "manager": bool}} in order of first appearance.
 
@@ -112,10 +134,7 @@ def extract_calls(text, ignore_case=False):
         is_manager = bool(MANAGER_BEFORE_RE.search(before)
                           or CREDIT_BEFORE_RE.search(before)
                           or HOME_AFTER_RE.search(after))
-        line_start = text.rfind("\n", 0, m.start()) + 1
-        line_end = text.find("\n", m.end())
-        line = text[line_start: line_end if line_end != -1 else len(text)]
-        line = re.sub(r"\s+", " ", line).strip()
+        line = paragraph_at(text, m.start(), m.end())
         if call not in found:
             found[call] = {"context": line, "manager": is_manager}
         elif not is_manager:

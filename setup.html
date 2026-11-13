@@ -156,10 +156,10 @@
               <select id="mail_mode"><option value="">any</option><option>CW</option><option>SSB</option><option>FT8</option><option>FT4</option><option>RTTY</option></select></label>
           </div>
           <div class="grid two">
-            <label class="f">Mail folder <small>("[Gmail]/All Mail" if a filter archives them)</small>
-              <input type="text" id="mail_folder" class="mono" placeholder="INBOX"></label>
-            <label class="f">Subject contains <small>(ARRL DX bulletins are ARLDnnn)</small>
-              <input type="text" id="mail_subject" class="mono" placeholder="ARLD"></label>
+            <label class="f">Mail folder <small>(blank = All Mail, so archived mail is found too)</small>
+              <input type="text" id="mail_folder" class="mono" placeholder="All Mail"></label>
+            <label class="f">Subject contains any of <small>(comma-separated)</small>
+              <input type="text" id="mail_subject" class="mono" placeholder="ARLD, DX Bulletin, DX News"></label>
           </div>
           <label class="f">Link to this page in alerts <small>(optional, e.g. http://192.168.1.50:8080)</small>
             <input type="url" id="public_url" class="mono"></label>

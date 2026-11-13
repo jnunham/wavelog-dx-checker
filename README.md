@@ -34,6 +34,21 @@ Open **http://<your-server>:8080** and follow the setup screen:
 
 Everything can be changed later under **Settings**.
 
+## How the email alerts work
+
+- Every few hours it looks through **All Mail** (so mail a Gmail filter has archived is
+  found too) from the last two weeks, for mail whose subject contains **ARLD**,
+  **DX Bulletin** or **DX News**. You can change the words in Settings.
+- Read or unread doesn't matter. It opens mail without marking it, and never moves
+  or deletes anything.
+- **No duplicates:** each bulletin is handled once. Its unique message ID is
+  remembered in `/data/state.json`, so later checks skip it.
+- The page shows what the last check searched and found. **Check inbox now** runs a
+  check immediately; **Re-check latest** runs the newest bulletin again and emails
+  the result, which is handy for testing.
+- If nothing matches, the status line lists recent mail from ARRL so you can see
+  which subject to add.
+
 ## How your details are protected
 
 - Settings are kept in `/data/config.json` on the container's own Docker volume,
@@ -91,7 +106,7 @@ Any setting can also be given as an environment variable in `docker-compose.yml`
 | `WAVELOG_URL`, `WAVELOG_KEY` | Wavelog address and API key (`wl2_...` = API v2, Wavelog 3.1+) |
 | `WAVELOG_INSECURE`, `WAVELOG_NO_INDEX_PHP`, `WAVELOG_STATION_IDS` | Advanced Wavelog options |
 | `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_TO` | Gmail address, app password, alert recipient |
-| `MAIL_CHECK_HOURS`, `MAIL_FOLDER`, `MAIL_SUBJECT`, `MAIL_FROM_FILTER` | When and where to look (defaults: 4, `INBOX`, `ARLD`) |
+| `MAIL_CHECK_HOURS`, `MAIL_FOLDER`, `MAIL_SUBJECT`, `MAIL_FROM_FILTER` | When and where to look (defaults: 4, All Mail, `ARLD, DX Bulletin, DX News`) |
 | `MAIL_BAND`, `MAIL_MODE`, `MAIL_NOTIFY_NONE`, `PUBLIC_URL` | Alert options |
 | `MAIL_IMAP_HOST`, `MAIL_SMTP_HOST` | For providers other than Gmail (IMAP SSL 993, SMTP SSL 465) |
 | `LOOKUP_DELAY`, `CACHE_MINUTES`, `MAX_CALLS`, `PORT`, `COOKIE_SECURE` | Server tuning |

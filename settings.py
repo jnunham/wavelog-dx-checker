@@ -62,8 +62,8 @@ FIELDS = {
 SECRETS = {"wavelog_key", "mail_password"}
 DEFAULTS = {
     "mail_imap_host": "imap.gmail.com", "mail_smtp_host": "smtp.gmail.com",
-    "mail_folder": "INBOX", "mail_subject": "ARLD", "mail_check_hours": 4.0,
-    "mail_lookback_days": 8, "mail_notify_none": False,
+    "mail_check_hours": 4.0,
+    "mail_lookback_days": 14, "mail_notify_none": False,
     "wavelog_insecure": False, "wavelog_no_index_php": False,
 }
 
