@@ -1,0 +1,21 @@
+services:
+  dx-checker:
+    build: .
+    image: wavelog-dx-checker
+    container_name: wavelog-dx-checker
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - dx-data:/data            # your settings + which bulletins were handled
+    # environment:
+    #   COOKIE_SECURE: "1"       # set if you put this behind HTTPS
+    #   TZ: "America/New_York"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+
+volumes:
+  dx-data:

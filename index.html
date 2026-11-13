@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DX Needed · Wavelog</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23e8590c'/%3E%3Cpath d='M9 17a7 7 0 0 1 14 0M12 17a4 4 0 0 1 8 0' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='18' r='1.8' fill='white'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --panel: #ffffff;
+    --ink: #1d1f22;
+    --muted: #6b6f76;
+    --faint: #9aa0a8;
+    --line: #e3e0d8;
+    --accent: #e8590c;
+    --accent-ink: #ffffff;
+    --new: #d6336c;      --new-bg: #fdecf2;
+    --qsl: #c77800;      --qsl-bg: #fff4dd;
+    --slot: #1c7ed6;     --slot-bg: #e7f1fc;
+    --have: #6b6f76;     --have-bg: #f0efeb;
+    --ok: #2b8a3e;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171a; --panel: #1d2024; --ink: #e9e7e2; --muted: #a0a5ad; --faint: #6f757e;
+      --line: #2e3238;
+      --new: #ff6b9a;  --new-bg: #3a1d28;
+      --qsl: #ffb84d;  --qsl-bg: #3a2c14;
+      --slot: #5aa9ff; --slot-bg: #172a40;
+      --have: #a0a5ad; --have-bg: #262a2f;
+      --ok: #51cf66;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  body { font-size: 15px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+
+  header {
+    max-width: 1180px; margin: 0 auto; padding: 22px 24px 8px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .mark { width: 34px; height: 34px; flex: none; }
+  h1 { font-size: 21px; margin: 0; letter-spacing: -0.01em; }
+  h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+  .conn {
+    margin-left: auto; font-size: 12.5px; color: var(--muted);
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .conn.ok .dot { background: var(--ok); }
+  .conn.bad .dot { background: var(--new); }
+  .nav { display: flex; gap: 14px; font-size: 13px; }
+  .nav a { color: var(--accent); text-underline-offset: 2px; }
+  .conn b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+
+  main {
+    max-width: 1180px; margin: 0 auto; padding: 12px 24px 48px;
+    display: grid; grid-template-columns: minmax(330px, 440px) 1fr; gap: 22px; align-items: start;
+  }
+  @media (max-width: 880px) { main { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .input { position: sticky; top: 16px; padding: 16px; }
+  @media (max-width: 880px) { .input { position: static; } }
+
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .drop { position: relative; margin-top: 8px; }
+  textarea {
+    width: 100%; height: 300px; resize: vertical; display: block;
+    font: 12.5px/1.5 var(--mono); color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px;
+  }
+  textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .drop.over textarea { border-color: var(--accent); border-style: dashed; }
+  .drop .hint {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--panel) 85%, transparent); border-radius: 8px;
+    font-weight: 600; color: var(--accent); pointer-events: none;
+  }
+  .drop.over .hint { display: flex; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .between { justify-content: space-between; }
+  .linkbtn {
+    background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer;
+    font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .found { margin-top: 8px; font-size: 13px; color: var(--muted); min-height: 20px; }
+  .found b { color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-height: 92px; overflow: auto; }
+  .chip {
+    font: 12px/1 var(--mono); padding: 4px 6px; border-radius: 5px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--ink);
+  }
+  .chip.skip { color: var(--faint); text-decoration: line-through; }
+  .chip.worked::after { content: " ✓"; color: var(--ok); }
+
+  .opts { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+  .field { display: grid; gap: 4px; flex: 1 1 140px; min-width: 0; }
+  .field select { width: 100%; min-width: 0; }
+  select {
+    font: inherit; font-size: 14px; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px;
+  }
+  select:disabled { opacity: .5; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; cursor: pointer; }
+  .check input { margin: 2px 0 0; accent-color: var(--accent); }
+  .check span small { display: block; color: var(--muted); font-size: 12px; }
+
+  .go {
+    margin-top: 14px; width: 100%; padding: 11px; border: 0; border-radius: 8px; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); font: 600 15px var(--sans);
+    display: flex; justify-content: center; align-items: center; gap: 10px;
+  }
+  .go:disabled { opacity: .55; cursor: default; }
+  .go kbd { font: 11px var(--mono); opacity: .75; }
+
+  /* results */
+  .results { min-height: 200px; }
+  .empty { padding: 56px 28px; text-align: center; color: var(--muted); }
+  .empty svg { width: 64px; height: 64px; color: var(--faint); margin-bottom: 8px; }
+  .empty p { margin: 4px auto; max-width: 420px; }
+
+  .summary { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+  .stats { display: flex; gap: 26px; flex-wrap: wrap; }
+  .stat .n { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .stat .t { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .stat.new .n { color: var(--new); } .stat.qsl .n { color: var(--qsl); } .stat.slot .n { color: var(--slot); }
+  .stat.zero .n { color: var(--faint); }
+  .sub { margin-top: 12px; font-size: 13px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .sub .tools { margin-left: auto; display: flex; gap: 14px; }
+
+  .progress { padding: 20px; }
+  .bar { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .now { font: 13px var(--mono); color: var(--muted); margin-top: 8px; }
+
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  ul.list li {
+    display: grid; grid-template-columns: 112px 1fr; gap: 4px 16px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  ul.list li:last-child { border-bottom: 0; }
+  @media (max-width: 560px) { ul.list li { grid-template-columns: 1fr; } }
+  .badge {
+    align-self: start; justify-self: start; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; padding: 4px 8px; border-radius: 5px; white-space: nowrap;
+  }
+  .k-new .badge { color: var(--new); background: var(--new-bg); }
+  .k-need_qsl .badge { color: var(--qsl); background: var(--qsl-bg); }
+  .k-band .badge, .k-mode .badge { color: var(--slot); background: var(--slot-bg); }
+  .k-have .badge { color: var(--have); background: var(--have-bg); }
+  .k-have { opacity: .7; }
+  .ent { font-weight: 650; font-size: 15.5px; }
+  .ent .meta { font-weight: 400; font-size: 12px; color: var(--faint); margin-left: 6px; font-family: var(--mono); }
+  .ent-calls { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .ctx { grid-column: 2; font-size: 13px; color: var(--muted); margin-top: 6px; }
+  @media (max-width: 560px) { .ctx { grid-column: 1; } }
+  .ctx mark { background: none; color: var(--ink); font-weight: 600; font-family: var(--mono); font-size: 12.5px; }
+
+  .foot { padding: 14px 20px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); display: grid; gap: 6px; }
+  .foot .chips { max-height: none; margin-top: 4px; }
+  .err { margin: 16px 20px; padding: 12px 14px; border-radius: 8px; background: var(--new-bg); color: var(--new); font-size: 14px; }
+  .nothing { padding: 34px 20px; text-align: center; color: var(--muted); }
+  .nothing b { display: block; color: var(--ok); font-size: 17px; margin-bottom: 4px; }
+  .mail { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  .mail .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mail .head b { color: var(--ink); font-size: 13px; }
+  .mail .e { color: var(--new); margin-top: 4px; }
+  .mail ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 3px; }
+  .mail li { display: flex; justify-content: space-between; gap: 10px; }
+  .mail li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail li .n { font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header>
+  <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#e8590c"/><path d="M9 17a7 7 0 0 1 14 0M12 17a4 4 0 0 1 8 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="16" cy="18" r="1.8" fill="#fff"/></svg>
+  <h1>DX Needed <small>What's in this bulletin that isn't in your DXCC yet</small></h1>
+  <div class="conn" id="conn"><span class="dot"></span><span id="connText">Checking Wavelog…</span></div>
+  <nav class="nav"><a href="/settings">Settings</a><button class="linkbtn" id="logout" type="button">Sign out</button></nav>
+</header>
+
+<main>
+  <section class="panel input" aria-label="Bulletin">
+    <div class="row between">
+      <span class="label">Bulletin text</span>
+      <span class="row" style="gap:14px">
+        <button class="linkbtn" id="openBtn" type="button">Open file…</button>
+        <button class="linkbtn" id="clearBtn" type="button">Clear</button>
+      </span>
+      <input type="file" id="file" accept=".txt,.text,.html,.htm,.eml,.md,text/*" hidden>
+    </div>
+    <div class="drop" id="drop">
+      <label for="text" class="sr">Bulletin text</label>
+      <textarea id="text" spellcheck="false"
+        placeholder="Paste this week's ARRL DX Bulletin here, or drop a .txt / .html file.&#10;&#10;MADAGASCAR, 5R. Jean, F6ABC will be QRV as 5R8XX from November 14 to 28…"></textarea>
+      <div class="hint">Drop to load</div>
+    </div>
+    <div class="found" id="found"></div>
+
+    <div class="opts">
+      <div class="row">
+        <label class="field"><span class="label">Band slot</span>
+          <select id="band">
+            <option value="">Any band (DXCC only)</option>
+            <option>160m</option><option>80m</option><option>60m</option><option>40m</option>
+            <option>30m</option><option>20m</option><option>17m</option><option>15m</option>
+            <option>12m</option><option>10m</option><option>6m</option><option>2m</option>
+          </select>
+        </label>
+        <label class="field"><span class="label">Mode</span>
+          <select id="mode" disabled>
+            <option value="">Any mode</option>
+            <option>CW</option><option>SSB</option><option>FT8</option><option>FT4</option>
+            <option>RTTY</option><option>PSK</option>
+          </select>
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="all">
+        <span>Show entities I already have</span></label>
+      <label class="check"><input type="checkbox" id="mgr">
+        <span>Look up QSL managers &amp; home calls too
+          <small>Normally skipped: "QSL via EA5GL", "F6ABC will be QRV as…"</small></span></label>
+    </div>
+
+    <button class="go" id="go" type="button" disabled>Check against Wavelog <kbd>Ctrl ↵</kbd></button>
+    <div class="mail" id="mail" hidden></div>
+  </section>
+
+  <section class="panel results" id="results" aria-live="polite">
+    <div class="empty">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M32 40v18M24 58h16M32 40l-10-28M32 40l10-28M22 12h20M26 24h12"/><path d="M14 18a22 22 0 0 0 0 20M50 18a22 22 0 0 1 0 20M8 12a32 32 0 0 0 0 32M56 12a32 32 0 0 1 0 32" opacity=".5"/></svg>
+      <p><b>Paste a bulletin to get started.</b></p>
+      <p>Each DX callsign is looked up in your Wavelog log, then grouped by DXCC entity. Entities you haven't confirmed go to the top.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const text = $("text"), go = $("go"), results = $("results");
+  const band = $("band"), mode = $("mode"), all = $("all"), mgr = $("mgr");
+  let configured = false, running = false, last = null;
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---- remember options (per browser) ----
+  const store = {
+    get() { try { return JSON.parse(localStorage.getItem("dxneeded") || "{}"); } catch { return {}; } },
+    set(v) { try { localStorage.setItem("dxneeded", JSON.stringify(v)); } catch {} },
+  };
+  const saved = store.get();
+  band.value = saved.band || ""; mode.value = saved.mode || "";
+  all.checked = !!saved.all; mgr.checked = !!saved.mgr;
+  mode.disabled = !band.value;
+  const saveOpts = () => store.set({ band: band.value, mode: mode.value, all: all.checked, mgr: mgr.checked });
+
+  // ---- session ----
+  const authFetch = async (url, opts) => {
+    const r = await fetch(url, opts);
+    if (r.status === 401) { location.href = "/login"; throw new Error("Signed out."); }
+    return r;
+  };
+  $("logout").onclick = async () => {
+    await fetch("api/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    location.href = "/login";
+  };
+
+  // ---- connection status ----
+  authFetch("api/config").then((r) => r.json()).then((c) => {
+    configured = c.configured;
+    const el = $("conn");
+    if (c.configured) {
+      el.classList.add("ok");
+      $("connText").innerHTML = `<b>${esc(c.host)}</b> · API ${esc(c.api)}`;
+    } else {
+      el.classList.add("bad");
+      $("connText").innerHTML = 'Wavelog not set up · <a href="/settings">Settings</a>';
+    }
+    renderMail(c.mail);
+    updateGo();
+  }).catch(() => { $("conn").classList.add("bad"); $("connText").textContent = "Server unreachable"; });
+
+  // ---- inbox watcher status ----
+  const ago = (t) => {
+    if (!t) return "";
+    const m = Math.round((Date.now() / 1000 - t) / 60);
+    return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+  };
+  function renderMail(m) {
+    const el = $("mail");
+    if (!m || !m.enabled) {
+      el.hidden = false;
+      el.innerHTML = `<div class="head"><span><b>Email alerts</b> · off</span><a class="linkbtn" href="/settings">Set up</a></div>`;
+      return;
+    }
+    el.hidden = false;
+    let h = `<div class="head"><span><b>Inbox watch</b> · every ${m.every_hours} h · ${m.last_check ? "checked " + ago(m.last_check) : "not checked yet"}</span>
+      <button class="linkbtn" id="mailRun" ${m.running ? "disabled" : ""}>${m.running ? "Checking…" : "Check inbox now"}</button></div>`;
+    if (m.last_error) h += `<div class="e">${esc(m.last_error)}</div>`;
+    else if (m.last_result) h += `<div>${esc(m.last_result)}</div>`;
+    if (m.history && m.history.length)
+      h += `<ul>${m.history.map((x) => `<li><span title="${esc(x.alert)}">${esc(x.subject)}</span><span class="n">${x.needed} needed</span></li>`).join("")}</ul>`;
+    el.innerHTML = h;
+    $("mailRun").onclick = async () => {
+      await authFetch("api/mail/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      pollMail(true);
+    };
+    pollMail(m.running);
+  }
+  let mailTimer = null;
+  function pollMail(soon) {
+    clearTimeout(mailTimer);
+    mailTimer = setTimeout(() => authFetch("api/config").then((r) => r.json()).then((c) => renderMail(c.mail)), soon ? 1500 : 60000);
+  }
+
+  // ---- live callsign preview ----
+  let previewTimer = null, previewCount = 0;
+  function preview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(async () => {
+      if (!text.value.trim()) { $("found").innerHTML = ""; previewCount = 0; updateGo(); return; }
+      try {
+        const r = await authFetch("api/extract", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text.value, include_managers: mgr.checked }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        previewCount = d.calls.length;
+        let h = `<b>${d.calls.length}</b> DX callsign${d.calls.length === 1 ? "" : "s"} found`;
+        if (d.skipped.length) h += ` · ${d.skipped.length} skipped`;
+        h += `<div class="chips">${d.calls.map((c) => `<span class="chip" title="${esc(c.context)}">${esc(c.call)}</span>`).join("")}`
+          + d.skipped.map((c) => `<span class="chip skip" title="QSL manager, home call or credit">${esc(c)}</span>`).join("") + `</div>`;
+        $("found").innerHTML = h;
+      } catch (e) { $("found").textContent = e.message || "Couldn't read that text."; previewCount = 0; }
+      updateGo();
+    }, 250);
+  }
+  function updateGo() { go.disabled = running || !configured || previewCount === 0; }
+
+  text.addEventListener("input", preview);
+  mgr.addEventListener("change", () => { saveOpts(); preview(); });
+  all.addEventListener("change", () => { saveOpts(); if (last) render(last); });
+  band.addEventListener("change", () => { mode.disabled = !band.value; if (!band.value) mode.value = ""; saveOpts(); });
+  mode.addEventListener("change", saveOpts);
+  $("clearBtn").onclick = () => { text.value = ""; preview(); text.focus(); };
+
+  // ---- files: open + drag/drop ----
+  const loadFile = (f) => {
+    if (!f) return;
+    if (/\.pdf$/i.test(f.name)) { alert("PDFs aren't supported — copy the text out of the PDF and paste it here."); return; }
+    const r = new FileReader();
+    r.onload = () => { text.value = r.result; preview(); };
+    r.readAsText(f);
+  };
+  $("openBtn").onclick = () => $("file").click();
+  $("file").onchange = (e) => { loadFile(e.target.files[0]); e.target.value = ""; };
+  const drop = $("drop");
+  ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); });
+
+  // ---- run a check (streams NDJSON progress) ----
+  async function run() {
+    if (go.disabled) return;
+    running = true; updateGo(); last = null;
+    results.innerHTML = `<div class="progress"><div class="label">Looking up callsigns</div>
+      <div class="bar"><i id="barFill"></i></div><div class="now" id="now">Starting…</div></div>`;
+    const errors = [];
+    try {
+      const resp = await authFetch("api/check", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.value, band: band.value, mode: mode.value, include_managers: mgr.checked }) });
+      if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.error || `HTTP ${resp.status}`); }
+      const reader = resp.body.getReader(), dec = new TextDecoder();
+      let buf = "", skipped = [], done = null;
+      for (;;) {
+        const { value, done: eof } = await reader.read();
+        if (value) buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line) continue;
+          const ev = JSON.parse(line);
+          if (ev.type === "start") skipped = ev.skipped;
+          else if (ev.type === "progress") {
+            if (ev.error) errors.push(`${ev.call}: ${ev.error}`);
+            const f = $("barFill"); if (f) f.style.width = `${(ev.i / ev.total) * 100}%`;
+            const n = $("now"); if (n) n.textContent = `${ev.i} / ${ev.total}  ${ev.call}`;
+          } else if (ev.type === "done") done = ev;
+          else if (ev.type === "error") throw new Error(ev.error);
+        }
+        if (eof) break;
+      }
+      if (!done) throw new Error("The connection closed before the check finished.");
+      last = { ...done, skipped, errors };
+      render(last);
+    } catch (e) {
+      results.innerHTML = `<div class="err"><b>Couldn't complete the check.</b><br>${esc(e.message)}</div>`;
+    } finally { running = false; updateGo(); }
+  }
+  go.onclick = run;
+  document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") run(); });
+
+  // ---- render results ----
+  function render(d) {
+    const ents = d.entities;
+    const count = (k) => ents.filter((e) => k.includes(e.kind)).length;
+    const nNew = count(["new"]), nQsl = count(["need_qsl"]), nSlot = count(["band", "mode"]);
+    const shown = all.checked ? ents : ents.filter((e) => e.needed);
+    const slotLabel = d.band ? `${d.band}${d.mode ? " " + d.mode : ""} slots` : "band slots";
+    const stat = (n, t, cls) => `<div class="stat ${cls}${n ? "" : " zero"}"><div class="n">${n}</div><div class="t">${t}</div></div>`;
+
+    let h = `<div class="summary"><div class="stats">
+      ${stat(nNew, nNew === 1 ? "new one" : "new ones", "new")}
+      ${stat(nQsl, "worked, need QSL", "qsl")}
+      ${d.band ? stat(nSlot, slotLabel, "slot") : ""}
+      </div><div class="sub"><span>${ents.length} entit${ents.length === 1 ? "y" : "ies"} in this bulletin</span>
+      <span class="tools"><button class="linkbtn" id="copyBtn">Copy list</button><button class="linkbtn" id="csvBtn">Download CSV</button></span></div></div>`;
+
+    if (!shown.length) {
+      h += `<div class="nothing"><b>Nothing new this week.</b>Every entity in this bulletin is already confirmed${d.band ? " on " + esc(slotLabel.replace(" slots", "")) : ""}.</div>`;
+    } else {
+      h += `<ul class="list">` + shown.map((e) => {
+        const worked = new Set(e.already_worked_calls.split(" ").filter(Boolean));
+        const calls = e.callsigns.split(" ").filter(Boolean);
+        let ctx = esc(e.context);
+        calls.forEach((c) => { ctx = ctx.split(esc(c)).join(`<mark>${esc(c)}</mark>`); });
+        return `<li class="k-${e.kind}"><span class="badge">${esc(e.status)}</span>
+          <div><div class="ent">${esc(titleCase(e.dxcc))}<span class="meta">#${esc(e.dxcc_id)}${e.continent ? " · " + esc(e.continent) : ""}</span></div>
+          <div class="ent-calls">${calls.map((c) => `<span class="chip${worked.has(c) ? " worked" : ""}" title="${worked.has(c) ? "Worked this call, not confirmed for DXCC" : ""}">${esc(c)}</span>`).join("")}</div></div>
+          <div class="ctx">${ctx}</div></li>`;
+      }).join("") + `</ul>`;
+    }
+
+    const foot = [];
+    if (d.unresolved.length) foot.push(`<div>Couldn't resolve a DXCC for:<div class="chips">${d.unresolved.map((c) => `<span class="chip">${esc(c)}</span>`).join("")}</div></div>`);
+    if (d.skipped.length) foot.push(`<div>Skipped as QSL managers / home calls / credits:<div class="chips">${d.skipped.map((c) => `<span class="chip skip">${esc(c)}</span>`).join("")}</div></div>`);
+    if (d.errors.length) foot.push(`<div>Lookup errors: ${d.errors.map(esc).join("; ")}</div>`);
+    if (foot.length) h += `<div class="foot">${foot.join("")}</div>`;
+    results.innerHTML = h;
+
+    $("csvBtn").onclick = () => {
+      const cols = ["status", "dxcc", "dxcc_id", "continent", "callsigns", "already_worked_calls", "context"];
+      const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const csv = [cols.join(","), ...shown.map((e) => cols.map((c) => q(e[c])).join(","))].join("\r\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = `dx-needed-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    $("copyBtn").onclick = async (ev) => {
+      const t = shown.map((e) => `${e.status.padEnd(22)} ${titleCase(e.dxcc).padEnd(28)} ${e.callsigns}`).join("\n");
+      try { await navigator.clipboard.writeText(t); ev.target.textContent = "Copied ✓"; }
+      catch { ev.target.textContent = "Copy failed"; }
+      setTimeout(() => { ev.target.textContent = "Copy list"; }, 1500);
+    };
+  }
+  const titleCase = (s) => String(s).toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase())
+    .replace(/\b(Of|And|The|De|Da|Del)\b/g, (m) => m.toLowerCase()).replace(/^./, (m) => m.toUpperCase());
+
+  preview();
+})();
+</script>
+</body>
+</html>

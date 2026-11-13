@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+data/
+config.json
+state.json
+.env
+*.csv

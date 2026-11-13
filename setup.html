@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup · DX Needed</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23e8590c'/%3E%3Cpath d='M9 17a7 7 0 0 1 14 0M12 17a4 4 0 0 1 8 0' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='18' r='1.8' fill='white'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #fff; --ink: #1d1f22; --muted: #6b6f76; --faint: #9aa0a8; --line: #e3e0d8;
+    --accent: #e8590c; --ok: #2b8a3e; --ok-bg: #e9f7ec; --bad: #d6336c; --bad-bg: #fdecf2;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171a; --panel: #1d2024; --ink: #e9e7e2; --muted: #a0a5ad; --faint: #6f757e; --line: #2e3238;
+            --ok: #51cf66; --ok-bg: #16301c; --bad: #ff6b9a; --bad-bg: #3a1d28; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  header { max-width: 720px; margin: 0 auto; padding: 22px 20px 6px; display: flex; align-items: center; gap: 14px; }
+  .mark { width: 34px; height: 34px; flex: none; }
+  h1 { font-size: 21px; margin: 0; }
+  h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+  nav { margin-left: auto; display: flex; gap: 16px; font-size: 13.5px; }
+  nav a, .linkbtn { color: var(--accent); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  main { max-width: 720px; margin: 0 auto; padding: 10px 20px 60px; display: grid; gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+  .card h2 { font-size: 16px; margin: 0 0 2px; display: flex; align-items: center; gap: 10px; }
+  .card h2 .n { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px;
+                display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .card > p.lead { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; }
+  .grid { display: grid; gap: 12px; }
+  .two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 600px) { .two { grid-template-columns: 1fr; } nav { width: 100%; margin-left: 0; } header { flex-wrap: wrap; } }
+  label.f { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+  label.f small { font-weight: 400; color: var(--muted); }
+  input[type=text], input[type=url], input[type=email], input[type=password], input[type=number], select {
+    font: 14px var(--sans); color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 9px 10px; width: 100%;
+  }
+  input.mono { font-family: var(--mono); font-size: 13px; }
+  input.code { font: 600 20px var(--mono); letter-spacing: .12em; text-transform: uppercase; max-width: 240px; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input:disabled { opacity: .6; }
+  input.err { border-color: var(--bad); }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; cursor: pointer; }
+  .check input { margin: 3px 0 0; accent-color: var(--accent); }
+  .check small { display: block; color: var(--muted); font-size: 12px; }
+  details { font-size: 13.5px; }
+  details summary { cursor: pointer; color: var(--muted); }
+  details .grid { margin-top: 10px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .btn { font: 600 14px var(--sans); padding: 9px 14px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line);
+         background: var(--bg); color: var(--ink); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #fff; padding: 12px 18px; font-size: 15px; }
+  .result { font-size: 13px; padding: 7px 10px; border-radius: 6px; }
+  .result.ok { background: var(--ok-bg); color: var(--ok); }
+  .result.bad { background: var(--bad-bg); color: var(--bad); }
+  .note { font-size: 12.5px; color: var(--muted); }
+  .note code, .card code { font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; }
+  ol.how { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+  ol.how li { margin: 2px 0; }
+  .lock { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .off { opacity: .5; pointer-events: none; }
+  .savebar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .shield { display: flex; gap: 10px; font-size: 12.5px; color: var(--muted); align-items: flex-start; }
+  .shield svg { flex: none; width: 18px; height: 18px; color: var(--ok); margin-top: 1px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#e8590c"/><path d="M9 17a7 7 0 0 1 14 0M12 17a4 4 0 0 1 8 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="16" cy="18" r="1.8" fill="#fff"/></svg>
+  <h1 id="title">Welcome to DX Needed <small id="subtitle">A few details and you're on the air.</small></h1>
+  <nav id="nav" hidden><a href="/">← Back to checker</a><button class="linkbtn" id="logout" type="button">Sign out</button></nav>
+</header>
+
+<main>
+  <!-- 1. setup code (first run only) -->
+  <section class="card" id="codeCard" hidden>
+    <h2><span class="n">1</span>Setup code</h2>
+    <p class="lead">To prove it's you setting this up, enter the code printed in the container log.</p>
+    <div class="grid">
+      <label class="f">Code from the log
+        <input type="text" id="setup_code" class="code" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX" maxlength="9">
+      </label>
+      <p class="note">Run <code>docker logs wavelog-dx-checker</code> on the machine running the container and look for “FIRST-RUN SETUP”.</p>
+    </div>
+  </section>
+
+  <!-- 2. Wavelog -->
+  <section class="card">
+    <h2><span class="n" data-step>2</span>Your Wavelog</h2>
+    <p class="lead">Where your log lives. Find or create an API key in Wavelog under your account menu → API Keys (a read-only key is enough).</p>
+    <div class="grid">
+      <label class="f">Wavelog address <span class="lock" data-lock="wavelog_url"></span>
+        <input type="url" id="wavelog_url" class="mono" placeholder="https://log.example.com" autocomplete="off">
+        <small>The address you open Wavelog at, e.g. http://192.168.1.20:8086</small>
+      </label>
+      <label class="f">API key <span class="lock" data-lock="wavelog_key"></span>
+        <input type="password" id="wavelog_key" class="mono" autocomplete="off" spellcheck="false">
+        <small>Keys starting with <code>wl2_</code> use the newer API (Wavelog 3.1+, needs the <code>lookup:read</code> scope).</small>
+      </label>
+      <details>
+        <summary>Advanced</summary>
+        <div class="grid">
+          <label class="check"><input type="checkbox" id="wavelog_insecure"><span>My Wavelog uses a self-signed certificate
+            <small>Skips HTTPS certificate checks. Only for your own server.</small></span></label>
+          <label class="check"><input type="checkbox" id="wavelog_no_index_php"><span>Don't add <code>/index.php</code> to API addresses</span></label>
+          <label class="f">Station location IDs <small>(optional, API v2 only, e.g. 1,3)</small>
+            <input type="text" id="wavelog_station_ids" class="mono" autocomplete="off"></label>
+        </div>
+      </details>
+      <div class="row"><button class="btn" type="button" id="testWl">Test connection</button><span class="result" id="wlResult" hidden></span></div>
+    </div>
+  </section>
+
+  <!-- 3. Gmail -->
+  <section class="card">
+    <h2><span class="n" data-step>3</span>Email alerts <span class="lock">(optional)</span></h2>
+    <p class="lead">Watch your Gmail for new ARRL DX Bulletins and email you what you need. Your mailbox is only read: nothing is marked, moved or deleted.</p>
+    <label class="check" style="margin-bottom:12px"><input type="checkbox" id="mailOn"><span><b>Email me when a new bulletin has something I need</b></span></label>
+    <div class="grid" id="mailFields">
+      <div class="grid two">
+        <label class="f">Gmail address <span class="lock" data-lock="mail_user"></span>
+          <input type="email" id="mail_user" autocomplete="off" placeholder="you@gmail.com"></label>
+        <label class="f">Gmail app password <span class="lock" data-lock="mail_password"></span>
+          <input type="password" id="mail_password" class="mono" autocomplete="off" spellcheck="false" placeholder="abcd efgh ijkl mnop"></label>
+      </div>
+      <ol class="how">
+        <li>Turn on 2-Step Verification for your Google account.</li>
+        <li>Create an app password at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> and paste it here. Your normal Gmail password won't work.</li>
+        <li>Make sure IMAP is on in Gmail → Settings → Forwarding and POP/IMAP.</li>
+      </ol>
+      <div class="row"><button class="btn" type="button" id="testMail">Test Gmail sign-in</button><span class="result" id="mailResult" hidden></span></div>
+      <div class="grid two">
+        <label class="f">Send alerts to <small>(defaults to the Gmail address)</small>
+          <input type="email" id="mail_to" autocomplete="off"></label>
+        <label class="f">Check every
+          <select id="mail_check_hours">
+            <option value="1">hour</option><option value="2">2 hours</option><option value="4">4 hours</option>
+            <option value="6">6 hours</option><option value="12">12 hours</option><option value="24">day</option>
+          </select></label>
+      </div>
+      <details>
+        <summary>More options</summary>
+        <div class="grid">
+          <div class="grid two">
+            <label class="f">Also flag band slots on
+              <select id="mail_band"><option value="">(no, DXCC only)</option>
+                <option>160m</option><option>80m</option><option>60m</option><option>40m</option><option>30m</option><option>20m</option>
+                <option>17m</option><option>15m</option><option>12m</option><option>10m</option><option>6m</option><option>2m</option></select></label>
+            <label class="f">…and mode
+              <select id="mail_mode"><option value="">any</option><option>CW</option><option>SSB</option><option>FT8</option><option>FT4</option><option>RTTY</option></select></label>
+          </div>
+          <div class="grid two">
+            <label class="f">Mail folder <small>("[Gmail]/All Mail" if a filter archives them)</small>
+              <input type="text" id="mail_folder" class="mono" placeholder="INBOX"></label>
+            <label class="f">Subject contains <small>(ARRL DX bulletins are ARLDnnn)</small>
+              <input type="text" id="mail_subject" class="mono" placeholder="ARLD"></label>
+          </div>
+          <label class="f">Link to this page in alerts <small>(optional, e.g. http://192.168.1.50:8080)</small>
+            <input type="url" id="public_url" class="mono"></label>
+          <label class="check"><input type="checkbox" id="mail_notify_none"><span>Email me even when a bulletin has nothing new</span></label>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- 4. admin password -->
+  <section class="card" id="pwCard">
+    <h2><span class="n" data-step>4</span><span id="pwTitle">Admin password</span></h2>
+    <p class="lead" id="pwLead">You'll use this to open the checker. At least 8 characters.</p>
+    <div class="grid">
+      <label class="f" id="curPwWrap" hidden>Current password
+        <input type="password" id="current_password" autocomplete="current-password"></label>
+      <div class="grid two">
+        <label class="f"><span id="newPwLabel">Password</span>
+          <input type="password" id="admin_password" autocomplete="new-password"></label>
+        <label class="f">Type it again
+          <input type="password" id="admin_password2" autocomplete="new-password"></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="savebar">
+      <button class="btn primary" type="button" id="save">Finish setup</button>
+      <span class="result" id="saveResult" hidden></span>
+    </div>
+    <div class="shield" style="margin-top:14px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      <div>Settings are saved inside the container's data volume, readable only by the app's own unprivileged user.
+        Your keys are never shown again or sent back to the browser, and your admin password is stored only as a salted hash.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let first = true, locked = [];
+
+  function show(el, ok, msg) { el.hidden = false; el.className = "result " + (ok ? "ok" : "bad"); el.textContent = msg; }
+  async function post(url, data) {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { location.href = "/login"; throw new Error("Please sign in."); }
+    return { ok: r.ok, status: r.status, ...j };
+  }
+  const val = (id) => { const el = $(id); return el.type === "checkbox" ? el.checked : el.value.trim(); };
+
+  function syncMail() { $("mailFields").classList.toggle("off", !$("mailOn").checked); }
+  $("mailOn").addEventListener("change", syncMail);
+  $("mail_band").addEventListener("change", () => { $("mail_mode").disabled = !$("mail_band").value; if (!$("mail_band").value) $("mail_mode").value = ""; });
+  $("setup_code").addEventListener("input", (e) => {
+    let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    e.target.value = v.length > 4 ? v.slice(0, 4) + "-" + v.slice(4) : v;
+    e.target.classList.remove("err");
+  });
+
+  function wlFields() {
+    return { wavelog_url: val("wavelog_url"), wavelog_key: val("wavelog_key"),
+      wavelog_insecure: val("wavelog_insecure"), wavelog_no_index_php: val("wavelog_no_index_php"),
+      wavelog_station_ids: val("wavelog_station_ids") };
+  }
+  function allFields() {
+    const f = { ...wlFields() };
+    if ($("mailOn").checked) {
+      Object.assign(f, { mail_user: val("mail_user"), mail_password: val("mail_password"), mail_to: val("mail_to"),
+        mail_check_hours: val("mail_check_hours"), mail_band: val("mail_band"), mail_mode: val("mail_mode"),
+        mail_folder: val("mail_folder"), mail_subject: val("mail_subject"), public_url: val("public_url"),
+        mail_notify_none: val("mail_notify_none") });
+    } else {
+      f.mail_user = "";   // turning email off
+    }
+    for (const k of locked) delete f[k];
+    if (first) f.setup_code = val("setup_code");
+    return f;
+  }
+
+  $("testWl").onclick = async () => {
+    const b = $("testWl"); b.disabled = true; b.textContent = "Testing…";
+    try {
+      const r = await post("/api/setup/test-wavelog", { ...wlFields(), setup_code: val("setup_code") });
+      if (r.field === "setup_code") $("setup_code").classList.add("err");
+      show($("wlResult"), !!r.ok && !r.error, r.message || r.error);
+    } catch (e) { show($("wlResult"), false, e.message); }
+    b.disabled = false; b.textContent = "Test connection";
+  };
+  $("testMail").onclick = async () => {
+    const b = $("testMail"); b.disabled = true; b.textContent = "Signing in…";
+    try {
+      const r = await post("/api/setup/test-mail", { mail_user: val("mail_user"), mail_password: val("mail_password"), setup_code: val("setup_code") });
+      if (r.field === "setup_code") $("setup_code").classList.add("err");
+      show($("mailResult"), !!r.ok && !r.error, r.message || r.error);
+    } catch (e) { show($("mailResult"), false, e.message); }
+    b.disabled = false; b.textContent = "Test Gmail sign-in";
+  };
+
+  $("save").onclick = async () => {
+    const res = $("saveResult");
+    const p1 = $("admin_password").value, p2 = $("admin_password2").value;
+    if ((first || p1) && p1 !== p2) return show(res, false, "The two passwords don't match.");
+    if (first && p1.length < 8) return show(res, false, "Choose an admin password of at least 8 characters.");
+    if ($("mailOn").checked && (!val("mail_user") || (first && !val("mail_password"))))
+      return show(res, false, "Enter your Gmail address and app password, or turn email alerts off.");
+    const b = $("save"); b.disabled = true; const label = b.textContent; b.textContent = "Checking Wavelog…";
+    try {
+      const data = allFields();
+      if (p1) { data.admin_password = p1; if (!first) data.current_password = $("current_password").value; }
+      const r = await post(first ? "/api/setup" : "/api/settings", data);
+      if (r.ok) {
+        show(res, true, first ? "All set! Opening the checker…" : "Saved.");
+        $("admin_password").value = $("admin_password2").value = $("current_password").value = "";
+        if (first) setTimeout(() => { location.href = "/"; }, 800);
+        else load();
+      } else {
+        if (r.field === "setup_code") $("setup_code").classList.add("err");
+        show(res, false, r.error || "Couldn't save.");
+      }
+    } catch (e) { show(res, false, e.message); }
+    b.disabled = false; b.textContent = label;
+  };
+
+  $("logout").onclick = async () => { await post("/api/logout", {}); location.href = "/login"; };
+
+  async function load() {
+    const st = await fetch("/api/state").then((r) => r.json());
+    first = !st.setup_done;
+    if (first) {
+      $("codeCard").hidden = false;
+      $("mailOn").checked = false; syncMail();
+      $("mail_check_hours").value = "4";
+      $("setup_code").focus();
+      return;
+    }
+    // settings mode
+    document.title = "Settings · DX Needed";
+    $("title").innerHTML = 'Settings <small>Change your Wavelog, email alerts or password.</small>';
+    $("nav").hidden = false;
+    document.querySelectorAll("[data-step]").forEach((el) => el.remove());
+    $("pwTitle").textContent = "Change admin password";
+    $("pwLead").textContent = "Leave blank to keep your current password. Changing it signs out other browsers.";
+    $("curPwWrap").hidden = false; $("newPwLabel").textContent = "New password";
+    $("save").textContent = "Save changes";
+
+    const s = await fetch("/api/settings").then((r) => { if (r.status === 401) location.href = "/login"; return r.json(); });
+    const v = s.values; locked = s.env_locked || [];
+    for (const k of ["wavelog_url", "wavelog_station_ids", "mail_user", "mail_to", "mail_folder", "mail_subject", "public_url", "mail_band", "mail_mode"])
+      if ($(k)) $(k).value = v[k] ?? "";
+    for (const k of ["wavelog_insecure", "wavelog_no_index_php", "mail_notify_none"]) $(k).checked = !!v[k];
+    $("mail_check_hours").value = String(Math.round(v.mail_check_hours || 4));
+    if (!$("mail_check_hours").value) $("mail_check_hours").value = "4";
+    $("mail_mode").disabled = !$("mail_band").value;
+    for (const k of ["wavelog_key", "mail_password"]) {
+      $(k).value = "";
+      $(k).placeholder = v[k].set ? `${v[k].hint} (leave blank to keep)` : "";
+    }
+    if ($("mail_to").value === $("mail_user").value) $("mail_to").value = "";
+    $("mailOn").checked = !!v.mail_user; syncMail();
+    for (const k of locked) {
+      const el = $(k); if (el) el.disabled = true;
+      const tag = document.querySelector(`[data-lock="${k}"]`); if (tag) tag.textContent = "· set by environment variable";
+    }
+  }
+  load();
+})();
+</script>
+</body>
+</html>
