@@ -141,9 +141,14 @@ def skip_zones(text, starts=None):
 def segment_bounds(text):
     """Sorted boundaries splitting the text into one piece per station write-up."""
     b = {0, len(text)}
-    b.update(m.end() for m in PARA_BREAK_RE.finditer(text))
-    b.update(m.start() for m in PARA_BREAK_RE.finditer(text))
-    b.update(entry_starts(text))
+    starts = entry_starts(text)
+    # When the text has bulletin entry headers, those are the boundaries. Blank lines
+    # aren't reliable then: text copied out of an email often has a blank line after
+    # every wrapped line. Without entry headers (other newsletters), use blank lines.
+    if len(starts) < 2:
+        b.update(m.end() for m in PARA_BREAK_RE.finditer(text))
+        b.update(m.start() for m in PARA_BREAK_RE.finditer(text))
+    b.update(starts)
     b.update(m.start() for r in (END_RE, CREDITS_RE, CONTESTS_RE) for m in r.finditer(text))
     return sorted(b)
 

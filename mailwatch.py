@@ -381,7 +381,9 @@ def build_alert(subject, result, band=None, mode=None, web_url=None):
            f'<h2 style="margin:0 0 4px;font-size:19px">{html.escape(headline[0].upper() + headline[1:])}</h2>'
            f'<div style="color:#6b6f76;font-size:13px;margin-bottom:12px">{html.escape(subject)} · '
            f'{len(result["entities"])} entities mentioned</div>{body}{foot}'
-           f'<p style="color:#9aa0a8;font-size:11px;margin-top:18px">✓ = you\'ve worked that call but the entity isn\'t confirmed yet.</p></div>')
+           f'<p style="color:#9aa0a8;font-size:11px;margin-top:18px">Only DXCC entities you haven\'t confirmed are listed; '
+           f'new callsigns in entities you already have are ignored. ✓ = you\'ve worked that call but the entity '
+           f'isn\'t confirmed yet.</p></div>')
     return mail_subject, text, htm, len(needed)
 
 

@@ -249,7 +249,7 @@
     <div class="empty">
       <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M32 40v18M24 58h16M32 40l-10-28M32 40l10-28M22 12h20M26 24h12"/><path d="M14 18a22 22 0 0 0 0 20M50 18a22 22 0 0 1 0 20M8 12a32 32 0 0 0 0 32M56 12a32 32 0 0 1 0 32" opacity=".5"/></svg>
       <p><b>Paste a bulletin to get started.</b></p>
-      <p>Each DX callsign is looked up in your Wavelog log, then grouped by DXCC entity. Entities you haven't confirmed go to the top.</p>
+      <p>Each DX station is matched to its DXCC entity in your Wavelog log. Only entities you haven't confirmed are listed. A new callsign in an entity you already have doesn't count.</p>
     </div>
   </section>
 </main>
@@ -437,7 +437,7 @@
       ${stat(nNew, nNew === 1 ? "new one" : "new ones", "new")}
       ${stat(nQsl, "worked, need QSL", "qsl")}
       ${d.band ? stat(nSlot, slotLabel, "slot") : ""}
-      </div><div class="sub"><span>${ents.length} entit${ents.length === 1 ? "y" : "ies"} in this bulletin</span>
+      </div><div class="sub"><span>${ents.length} entit${ents.length === 1 ? "y" : "ies"} in this bulletin · matched by DXCC entity, so new calls in entities you've confirmed aren't listed</span>
       <span class="tools"><button class="linkbtn" id="copyBtn">Copy list</button><button class="linkbtn" id="csvBtn">Download CSV</button></span></div></div>`;
 
     const item = (e) => {

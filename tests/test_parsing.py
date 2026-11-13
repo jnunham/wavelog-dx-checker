@@ -44,12 +44,17 @@ class Layouts(unittest.TestCase):
         # The emailed bulletin often has no blank lines between entries.
         self.check("b_prefix_first_runon.txt", self.PREFIX_FIRST)
 
+    def test_pasted_from_email_double_spaced(self):
+        # Copying the email into the page puts a blank line after every wrapped line.
+        self.check("d_pasted_double_spaced.txt", self.PREFIX_FIRST)
+
     def test_country_first(self):
         self.check("c_country_first.txt", {"4U1ITU": "Nov 14–16", "5X2Z": "",
                                            "9Z4Y": "until Nov 30", "AO100IARU": "ended Nov 1"})
 
     def test_credits_and_contests_skipped(self):
-        for name in ("a_prefix_first_blank.txt", "b_prefix_first_runon.txt", "c_country_first.txt"):
+        for name in ("a_prefix_first_blank.txt", "b_prefix_first_runon.txt", "c_country_first.txt",
+                     "d_pasted_double_spaced.txt"):
             got = stations(name)
             for not_dx in ("W1AW", "WA7BNM", "K1USN", "KL5SE", "EI8JB", "VE3KTN", "KF5NSR", "W3HNK"):
                 self.assertNotIn(not_dx, got, f"{not_dx} in {name}")
@@ -77,3 +82,30 @@ class Dates(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeWavelog:
+    """Answers like Wavelog's lookup: per-callsign DXCC + confirmation flags."""
+    DB = {
+        # call: (dxcc, id, dxcc_confirmed, call_worked)
+        "VY0ERC": ("CANADA", "1", True, False),       # never worked this call, Canada confirmed
+        "D44JB": ("CAPE VERDE", "409", False, False),  # entity not confirmed
+        "KC4USV": ("ANTARCTICA", "13", False, True),   # worked this call, not confirmed
+    }
+
+    def lookup(self, call, band=None, mode=None):
+        n, i, conf, worked = self.DB[call]
+        return {"dxcc": n, "dxcc_id": i, "cont": "", "dxcc_confirmed": conf,
+                "dxcc_confirmed_on_band": conf, "dxcc_confirmed_on_band_mode": conf,
+                "call_worked": worked}
+
+
+class DxccNotCallsign(unittest.TestCase):
+    def test_new_call_in_confirmed_entity_is_not_needed(self):
+        calls = {c: {"context": f"{c} is QRV."} for c in FakeWavelog.DB}
+        out = d.check_calls(calls, FakeWavelog(), today=TODAY)
+        by = {e["callsigns"]: e for e in out["entities"]}
+        self.assertFalse(by["VY0ERC"]["needed"], "new callsign, but Canada is confirmed")
+        self.assertTrue(by["D44JB"]["needed"])
+        self.assertEqual(by["D44JB"]["kind"], "new")
+        self.assertEqual(by["KC4USV"]["kind"], "need_qsl")
